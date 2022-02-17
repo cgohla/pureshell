@@ -1,26 +1,26 @@
 {-# LANGUAGE TypeApplications #-}
 module Language.PureShell.Main where
 
-import System.Environment (getArgs)
-import qualified Data.List.NonEmpty as NE (nonEmpty, head)
-import Data.Maybe (maybe)
-import qualified Data.ByteString.Lazy as B (readFile)
-import Data.Version (Version)
-import qualified Data.Text as T (pack)
-import qualified Data.Text.IO as T (putStrLn)
+import qualified Data.ByteString.Lazy                as B (readFile)
+import qualified Data.List.NonEmpty                  as NE (head, nonEmpty)
+import           Data.Maybe                          (maybe)
+import qualified Data.Text                           as T (pack)
+import qualified Data.Text.IO                        as T (putStrLn)
+import           Data.Version                        (Version)
+import           System.Environment                  (getArgs)
 
-import Data.Aeson.Types (parseEither, Value)
-import Data.Aeson (decode)
-import Data.Either (either)
+import           Data.Aeson                          (decode)
+import           Data.Aeson.Types                    (Value, parseEither)
+import           Data.Either                         (either)
 
-import Language.PureScript.CoreFn.Ann (Ann)
-import Language.PureScript.CoreFn.Expr (Expr)
-import Language.PureScript.Names (Ident)
-import Language.PureScript.PSString (PSString)
-import Language.PureScript.CoreFn.FromJSON (moduleFromJSON)
-import Language.PureScript.CoreFn.Module (Module(..))
+import           Language.PureScript.CoreFn.Ann      (Ann)
+import           Language.PureScript.CoreFn.Expr     (Expr)
+import           Language.PureScript.CoreFn.FromJSON (moduleFromJSON)
+import           Language.PureScript.CoreFn.Module   (Module (..))
+import           Language.PureScript.Names           (Ident)
+import           Language.PureScript.PSString        (PSString)
 
-import Language.PureScript.AST.Literals (Literal)
+import           Language.PureScript.AST.Literals    (Literal)
 
 getModule :: FilePath -> IO (Version, Module Ann)
 getModule p = do

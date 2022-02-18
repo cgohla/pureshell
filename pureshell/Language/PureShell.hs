@@ -16,17 +16,18 @@ import qualified Language.PureScript.AST.Literals  as L (Literal (..))
 import           Language.PureScript.CoreFn.Ann    (Ann)
 import           Language.PureScript.CoreFn.Expr   (Bind (..), Expr (..))
 import           Language.PureScript.CoreFn.Module (Module (..))
-import           Language.PureScript.Names         (Ident, runIdent)
+import           Language.PureScript.Names         (Ident (..), runIdent)
 import           Language.PureScript.PSString      (PSString, decodeString)
 
+import qualified Language.Bash.PrettyPrinter       as Bash (bytes)
 import           Language.Bash.Script              (script)
 import qualified Language.Bash.Syntax              as Bash (Annotated (..),
                                                             Assignment (..),
                                                             Expression (..),
                                                             FuncName (..),
                                                             Identifier (..),
-                                                            Statement (..))
-
+                                                            Statement (..),
+                                                            VarName (..))
 
 import           Data.Maybe                        (fromMaybe)
 
@@ -69,7 +70,32 @@ identToName = toName . encodeUtf8 . runIdent
 identToFuncName = toFuncName . encodeUtf8 . runIdent
 
 convertExpr :: Expr a -> Bash.Statement ()
-convertExpr e = Bash.Empty
+convertExpr = \case
+  Abs _ x e -> mconcat [ defineFunction , returnName ]-- TODO 1. create unique name 2. create function using eval 3. echo the name
+    where
+      defineFunction = Bash.EvalCommand [fText]
+      fText = Bash.Literal $ bash $ Bash.bytes $ (Bash.Function fName fBody :: Bash.Statement ()) -- TODO
+                                                                                                  -- Problem:
+                                                                                                  -- the
+                                                                                                  -- function
+                                                                                                  -- name
+                                                                                                  -- needs
+                                                                                                  -- to
+                                                                                                  -- come
+                                                                                                  -- from
+                                                                                                  -- a
+                                                                                                  -- variable,
+                                                                                                  -- that
+                                                                                                  -- gets
+                                                                                                  -- substituted
+                                                                                                  -- before
+                                                                                                  -- the
+                                                                                                  -- eval
+      fName = identToFuncName (Ident "x") -- TODO needs a unique name
+      fBody = Bash.Annotated () $ convertExpr e
+      returnName = Bash.SimpleCommand (Bash.Literal $ bash "echo") [Bash.ReadVar $ Bash.VarIdent $ Bash.Identifier "x"]
+  Case _ es as -> Bash.Empty
+  _ -> Bash.Empty
 
 topLevelBinding :: Bind Ann -> Bash.Statement ()
 topLevelBinding = \case

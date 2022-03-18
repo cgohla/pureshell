@@ -73,7 +73,7 @@ convertExpr :: Expr a -> Bash.Statement ()
 convertExpr = \case
   Abs _ x e -> mconcat [ defineFunction , returnName ]-- TODO 1. create unique name 2. create function using eval 3. echo the name
     where
-      defineFunction = Bash.EvalCommand [fText]
+      defineFunction = undefined -- Bash.EvalCommand [fText]
       fText = Bash.Literal $ bash $ Bash.bytes $ (Bash.Function fName fBody :: Bash.Statement ()) -- TODO
                                                                                                   -- Problem:
                                                                                                   -- the

@@ -66,18 +66,21 @@ instance (ToBashExpression l) => ToBashStatement (FunDef l)  where
   toBashStatement (FunDef (FunName n) ns as s) = Bash.Function n' a'
     where
       n' = Bash.Fancy n
+      a' = Bash.Annotated () $ appendBashStatements $ entry <> ps <> as' <> [toBashStatement s]
       entry = [Bash.IfThen c r]
         where
           c = Bash.Annotated () $ Bash.test $ Bash.ARGVLength `Bash.Test_lt` length' ns
-          length' xs = Bash.Literal $ Escape.bash $ C8.pack $ show $ length xs
+            where
+              length' xs = Bash.Literal $ Escape.bash $ C8.pack $ show $ length xs
           r = Bash.Annotated () $ appendBashStatements [echoClosure, exit]
-          echoClosure = Bash.SimpleCommand (Bash.Literal $ Escape.bash "echo")
-                        [Bash.Literal $ Escape.bash n, Bash.ARGVElements]
-          exit = Bash.SimpleCommand (Bash.Literal $ Escape.bash "exit")
-                 [Bash.Literal $ Escape.bash "0"]
+            where
+              echoClosure = Bash.SimpleCommand (Bash.Literal $ Escape.bash "echo")
+                            [Bash.Literal $ Escape.bash n, Bash.ARGVElements]
+              exit = Bash.SimpleCommand (Bash.Literal $ Escape.bash "exit")
+                     [Bash.Literal $ Escape.bash "0"]
       ps = fmap posbind $ zip [1..] ns
         where
-          posbind (i, v) = Bash.Assign $ Bash.Var (Bash.Identifier $ getVarName v) $ Bash.ReadVar $ Bash.VarSpecial (dollar i) -- TODO use shifting to assign the parameters
+          posbind (i, v) = Bash.Local $ Bash.Var (Bash.Identifier $ getVarName v) $ Bash.ReadVar $ Bash.VarSpecial (dollar i) -- TODO use shifting to assign the parameters
           -- TODO need to declare local variables
           dollar 0 = Bash.Dollar0
           dollar 1 = Bash.Dollar1
@@ -92,11 +95,10 @@ instance (ToBashExpression l) => ToBashStatement (FunDef l)  where
           dollar _ = error "unsupported positional parameter" -- TODO this is a problem
       as'= fmap assignment as
         where
-          assignment (Assignment v s) = Bash.Assign $ Bash.Var i e
+          assignment (Assignment v s) = Bash.Local $ Bash.Var i e
             where
               i = Bash.Identifier $ getVarName v
               e = Bash.Eval $ Bash.Annotated () $ toBashStatement s
-      a' = Bash.Annotated () $ appendBashStatements $ entry <> ps <> as' <> [toBashStatement s]
 
 instance (ToBashExpression l) => ToBashStatement (Module l) where
   toBashStatement (Module fs) = go fs

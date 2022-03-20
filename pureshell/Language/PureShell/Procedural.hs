@@ -80,19 +80,9 @@ instance (ToBashExpression l) => ToBashStatement (FunDef l)  where
                      [Bash.Literal $ Escape.bash "0"]
       ps = fmap posbind $ zip [1..] ns
         where
-          posbind (i, v) = Bash.Local $ Bash.Var (Bash.Identifier $ getVarName v) $ Bash.ReadVar $ Bash.VarSpecial (dollar i) -- TODO use shifting to assign the parameters
-          -- TODO need to declare local variables
-          dollar 0 = Bash.Dollar0
-          dollar 1 = Bash.Dollar1
-          dollar 2 = Bash.Dollar2
-          dollar 3 = Bash.Dollar3
-          dollar 4 = Bash.Dollar4
-          dollar 5 = Bash.Dollar5
-          dollar 6 = Bash.Dollar6
-          dollar 7 = Bash.Dollar7
-          dollar 8 = Bash.Dollar8
-          dollar 9 = Bash.Dollar9
-          dollar _ = error "unsupported positional parameter" -- TODO this is a problem
+          posbind (i, v) = Bash.Local $ Bash.Var (bindvar v) $ Bash.ReadVar $ posvar i
+          bindvar = Bash.Identifier . getVarName
+          posvar = Bash.VarSpecial . Bash.DollarNat
       as'= fmap assignment as
         where
           assignment (Assignment v s) = Bash.Local $ Bash.Var i e

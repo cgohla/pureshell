@@ -56,3 +56,4 @@ library
         build-depends: base ^>=4.14.3.0, bash, bytestring,
                        purescript-cst, purescript, binary, aeson, text, shell-escape, natural
         exposed-modules: Language.PureShell, Language.PureShell.Main, Language.PureShell.Procedural, Language.Bash.Test
+        ghc-options : -Wall

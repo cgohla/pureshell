@@ -1,8 +1,8 @@
 {-# LANGUAGE DerivingStrategies         #-}
+{-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase                 #-}
 {-# LANGUAGE OverloadedStrings          #-}
-
 module Language.PureShell.Procedural where
 
 import           Data.ByteString             (ByteString)
@@ -44,9 +44,9 @@ data Statement l = Literal l -- TODO we should probably rename this to 'Expressi
                  | Application FunClosure [VarName]
                  deriving (Show, Eq, Ord)
 
-data Assignment l = Assignment VarName (Statement l)
-                  -- TODO this could be generalized to allow a
-                  -- sequence of assignments to precede the statement
+data Sequence l = Sequence [Assignment l] (Statement l) deriving (Show, Eq, Ord)
+
+data Assignment l = Assignment VarName (Sequence l)
                   | ObjectCommand ObjectCommand
                   -- TODO add a constructor for case blocks. QUESTION:
                   -- what do we match on?
@@ -56,7 +56,7 @@ data Assignment l = Assignment VarName (Statement l)
 -- TODO define a data type for a sequence of assignments, ending in a
 -- "statement". we can share this between case branches and fundefs
 
-data FunDef l = FunDef FunName [VarName] [Assignment l] (Statement l) deriving (Show, Eq, Ord)
+data FunDef l = FunDef FunName [VarName] (Sequence l) deriving (Show, Eq, Ord)
 
 class ToBashExpression a where
   toBashExpression :: a -> Bash.Expression ()
@@ -109,8 +109,9 @@ instance ToBashStatement (ObjectCommand) where
 
 instance (ToBashExpression l) => ToBashStatement (Assignment l) where
   toBashStatement = \case
-    Assignment v s -> Bash.Local $ Bash.Var i e
+    Assignment v (Sequence as s) -> appendBashStatements [ss, Bash.Local $ Bash.Var i e]
       where
+        ss = toBashStatement as
         i = Bash.Identifier $ getVarName v
         e = Bash.Eval $ Bash.Annotated () $ toBashStatement s
     ObjectCommand o -> toBashStatement o
@@ -121,11 +122,14 @@ appendBashStatements (s:ss) = Bash.Sequence (ann s) $ ann $ appendBashStatements
   where
     ann = Bash.Annotated ()
 
+instance (ToBashExpression l) => ToBashStatement [Assignment l] where
+  toBashStatement = appendBashStatements . fmap toBashStatement
+
 instance (ToBashExpression l) => ToBashStatement (FunDef l)  where
-  toBashStatement (FunDef (FunName n) ns as s) = Bash.Function n' a'
+  toBashStatement (FunDef (FunName n) ns (Sequence as s)) = Bash.Function n' a'
     where
       n' = Bash.Fancy n
-      a' = Bash.Annotated () $ appendBashStatements $ entry <> ps <> as' <> [toBashStatement s]
+      a' = Bash.Annotated () $ appendBashStatements $ entry <> ps <> [as', toBashStatement s]
       entry = [Bash.IfThen c r]
         where
           c = Bash.Annotated () $ Bash.test $ Bash.ARGVLength `Bash.Test_lt` length' ns
@@ -142,7 +146,7 @@ instance (ToBashExpression l) => ToBashStatement (FunDef l)  where
           posbind (i, v) = Bash.Local $ Bash.Var (bindvar v) $ Bash.ReadVar $ posvar i
           bindvar = Bash.Identifier . getVarName
           posvar = Bash.VarSpecial . Bash.DollarNat
-      as'= fmap toBashStatement as
+      as'= toBashStatement as
 
 instance (ToBashExpression l) => ToBashStatement (Module l) where
   toBashStatement (Module fs) = go fs

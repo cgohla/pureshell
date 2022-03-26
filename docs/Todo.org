@@ -1,0 +1,20 @@
+* Transformations on the functional input
+  The intermediate results should be represented using 'trees that
+  grow'. We needs different versions of the functional core language,
+  The first stage needs to be isomorphic to
+  Language.PureShell.CoreFn.Expr.Expr.
+
+  Steps not necessarily in order here
+** TODO Eliminate recursive let blocks
+** TODO Turn all lambda abstractions into closed terms
+
+* Usability
+** TODO Improve the suite of examples, i.e., output them selectively
+** TODO Write integration test
+
+* Procedural IR optimizations
+  These might need to operate on the bash grammar
+** TODO Eliminate unused variable definitions, in particular unused bindings of positional parameters
+** TODO Substitute single use bindings with their values
+** TODO Function inlining, also for foreign functions
+** TODO Tail call to loop transformation

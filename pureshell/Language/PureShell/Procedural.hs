@@ -42,19 +42,17 @@ data ObjectCommand = EmptyObject ObjectName
 
 data Statement l = Literal l -- TODO we should probably rename this to 'Expression'
                  | Application FunClosure [VarName]
+                 -- perhaps we also need variable reads here
                  deriving (Show, Eq, Ord)
 
 data Sequence l = Sequence [Assignment l] (Statement l) deriving (Show, Eq, Ord)
 
+data CaseBranch l = CaseBranch l (Sequence l) deriving (Show, Eq, Ord)
+
 data Assignment l = Assignment VarName (Sequence l)
                   | ObjectCommand ObjectCommand
-                  -- TODO add a constructor for case blocks. QUESTION:
-                  -- what do we match on?
-                  -- | Case VarName VarName [CaseBranch]
+                  | Case VarName VarName [CaseBranch l]
                   deriving (Show, Eq, Ord)
-
--- TODO define a data type for a sequence of assignments, ending in a
--- "statement". we can share this between case branches and fundefs
 
 data FunDef l = FunDef FunName [VarName] (Sequence l) deriving (Show, Eq, Ord)
 
@@ -115,6 +113,14 @@ instance (ToBashExpression l) => ToBashStatement (Assignment l) where
         i = Bash.Identifier $ getVarName v
         e = Bash.Eval $ Bash.Annotated () $ toBashStatement s
     ObjectCommand o -> toBashStatement o
+    Case v x bs -> Bash.Case x' bs'
+      where
+        x' = Bash.ReadVar $ Bash.VarIdent $ Bash.Identifier $ getVarName x
+        bs' = fmap branch bs
+          where
+            branch (CaseBranch l s) = (toBashExpression l, p)
+              where
+                p = Bash.Annotated () $ toBashStatement $ Assignment v s
 
 appendBashStatements :: [Bash.Statement ()] -> Bash.Statement ()
 appendBashStatements [] = Bash.Empty

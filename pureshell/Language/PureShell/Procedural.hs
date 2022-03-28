@@ -97,7 +97,7 @@ instance ToBashStatement (ObjectCommand) where
         p   = Bash.Literal $ Escape.bash $ "*="
     UpdateField o f v -> Bash.Assign $ Bash.Var field update
       where
-        field  = Bash.Identifier $ getObjectName o <> "[" <> getFieldName f <> "]"
+        field  = Bash.Identifier $ getObjectName o <> "[" <> getFieldName f <> "]" -- TODO this should use DictUpdate
         update = Bash.ReadVar $ Bash.VarIdent $ Bash.Identifier $ getVarName v
     ProjectField v o f -> Bash.Assign $ v' (Bash.ReadArray o' f')
       where

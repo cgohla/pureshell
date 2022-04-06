@@ -1,22 +1,22 @@
-{-# LANGUAGE GADTs #-}
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE KindSignatures #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE DataKinds                #-}
+{-# LANGUAGE GADTs                    #-}
+{-# LANGUAGE KindSignatures           #-}
+{-# LANGUAGE RankNTypes               #-}
+{-# LANGUAGE ScopedTypeVariables      #-}
 {-# LANGUAGE StandaloneKindSignatures #-}
-{-# LANGUAGE RankNTypes  #-}
-{-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE TypeFamilies             #-}
+{-# LANGUAGE TypeOperators            #-}
+{-# LANGUAGE UndecidableInstances     #-}
 module Language.PureShell.Combinatory.Types where
 
-import Data.ByteString (ByteString)
-import Data.Singletons
-import Data.Singletons.TH (genSingletons)
-import Data.Singletons.Prelude.List
-import Data.Singletons.Prelude.Eq
-import GHC.Word (Word8)
-import GHC.TypeLits (Symbol)
-import Data.Text (Text)
+import           Data.ByteString              (ByteString)
+import           Data.Singletons
+import           Data.Singletons.Prelude.Eq
+import           Data.Singletons.Prelude.List
+import           Data.Singletons.TH           (genSingletons)
+import           Data.Text                    (Text)
+import           GHC.TypeLits                 (Symbol)
+import           GHC.Word                     (Word8)
 
 data OnlyByteStrings
 
@@ -38,10 +38,13 @@ type SingletonContext s = 'Context '[s]
 
 type family ConcatContexts x y where
   ConcatContexts ('Context a) ('Context b) = 'Context (a ++ b)
+  -- can we use a lifted monoid instance here?
 
-data ExprList (cs :: [Context]) where -- Maybe there is a generalized way ogf doing this.
-  ExprListNil  :: ExprList '[]
-  ExprListCons :: Expr c -> ExprList cs -> ExprList (c ': cs)
+type ExprList c = GenExprList Expr c
+
+data GenExprList (t :: Context -> *) (c :: Context) where
+  GenExprListNil  :: GenExprList t EmptyContext
+  GenExprListCons :: t c -> GenExprList t d -> GenExprList t (ConcatContexts c d)
 
 type family FlattenContextList (cs :: [Context]) :: Context where
   -- TODO we should be able to define this as a lift of a term level
@@ -60,12 +63,24 @@ type family ContextIsContained c d where
 
 -- data Bind = Bind Foo (Expr c) deriving (Show, Eq, Ord)
 
+data ObjectRow c where
+  ObjectRow :: Foo -> Expr c -> ObjectRow c
+
+type ObjectRows c = GenExprList ObjectRow c
+
+data Literal c where
+  NumericLiteral :: Either Integer Double -> Literal EmptyContext
+  StringLiteral  :: String -> Literal EmptyContext -- We may need to refine this
+  BooleanLiteral :: Bool  -> Literal EmptyContext
+  ArrayLiteral   :: ExprList c -> Literal c
+  ObjectLiteral  :: ObjectRows c -> Literal c
+
 -- | This is the heart of this module
 data Expr (c :: Context) where -- TODO add kind sigs
   Var  :: Sing s -> Expr (SingletonContext s)
-  Lit  :: String -> Expr EmptyContext -- TODO parametrize over the contained literals
+  Lit  :: Literal c -> Expr c -- TODO parametrize over the contained literals
   -- this should closely match corefn literals
-  App  :: Expr c -> ExprList cs -> Expr (FlattenContextList (c ': cs))
+  App  :: Expr c -> ExprList d -> Expr (ConcatContexts c d)
   -- ^ Application of multiple terms
   Abs  :: ((ContextIsContained c d) ~ 'True) => Sing c -> Expr d -> Expr EmptyContext
   -- ^ Abstraction always has to bind all free variables

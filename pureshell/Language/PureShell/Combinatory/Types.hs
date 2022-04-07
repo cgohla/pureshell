@@ -89,10 +89,10 @@ data Expr (c :: Context) where -- TODO add kind sigs
 -- Let :: Bind s  -> Expr c -> Expr (Singleton) -- We need let bindings
 -- Case a [Expr a] [CaseAlternative a] -- we definitely need case expressions
 
-  -- TODO these are nice to have
-  --  Constructor a (ProperName 'TypeName) (ProperName 'ConstructorName) [Ident]
-  --  Accessor a PSString (Expr a)
-  --  ObjectUpdate a (Expr a) [(PSString, Expr a)]
+-- TODO these are nice to have
+-- Constructor a (ProperName 'TypeName) (ProperName 'ConstructorName) [Ident]
+-- Accessor a PSString (Expr a)
+-- ObjectUpdate a (Expr a) [(PSString, Expr a)]
 
 -- TODO write a function
 -- lowerToProcedural :: Expr 'EmptyContext -> Module

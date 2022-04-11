@@ -10,7 +10,8 @@ import           Control.Monad.State                  (MonadState, get, put)
 import           Control.Monad.Writer                 (MonadWriter)
 import           Data.ByteString                      (ByteString)
 import qualified Data.ByteString.Char8                as C8 (pack)
-import qualified Data.Map.Strict                      as Map (Map, insertLookupWithKey)
+import qualified Data.Map.Strict                      as Map (Map,
+                                                              insertLookupWithKey)
 
 -- lowerToProcedural :: Combinatory.Module -> Procedural.Module ByteString
 -- lowerToProcedural m = undefined
@@ -36,6 +37,9 @@ lowerLiteral = \case
 
 type LocalNames = Map.Map ByteString Integer
 
+-- TODO implement localNames and moduleLambdaNames as algebraic
+-- effects (in polysemy?)  in a separate module
+
 insertLookup :: (Ord k) => (v -> v -> v) -> k -> v -> Map.Map k v -> (Maybe v, Map.Map k v)
 insertLookup f k v m = Map.insertLookupWithKey (\_ -> \x -> \y -> f x y) k v m
 
@@ -47,14 +51,26 @@ mkVarName b = do
   put ns'
   pure $ Procedural.VarName $ b <> (C8.pack j)
 
+chainExprEval :: (MonadState LocalNames m, MonadWriter [Procedural.FunDef ByteString] m)
+   => m [Procedural.Assignment ByteString] -> Combinatory.Expr c -> m [Procedural.Assignment ByteString]
+-- TODO we also need to return the varNames we're binding the expressions to
+chainExprEval as e = do
+  bs <- as
+  s <- lowerExpr e
+  v <- mkVarName "r"
+  let a = Procedural.Assignment v s
+  pure $ bs <> [a]
+
 lowerExpr :: (MonadState LocalNames m, MonadWriter [Procedural.FunDef ByteString] m)
           => Combinatory.Expr c -> m (Procedural.Sequence ByteString)
 lowerExpr = \case
   Combinatory.Var _    -> error "needs vars in procedural"
   Combinatory.Lit l    -> lowerLiteral l
-  Combinatory.App e _es -> do
-    -- traverse
+  Combinatory.App e es -> do
+    as <- Combinatory.genExprListFoldl chainExprEval (pure []) es
+    n <- _mkFunName "localLambda"
     let a = Procedural.Application (Procedural.ClosureFromName _n) _vs -- CONTINUE here
-    pure $ Procedural.Sequence _as a -- lowerExpr e
+    pure $ Procedural.Sequence as a -- lowerExpr e
     -- recursively build sequences for e and es
+    where
   _                    -> error "not implemented"

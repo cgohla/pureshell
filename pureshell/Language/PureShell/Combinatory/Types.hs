@@ -49,11 +49,15 @@ data GenExprList (t :: Context -> *) (c :: Context) where
   GenExprListNil  :: GenExprList t EmptyContext
   GenExprListCons :: t c -> GenExprList t d -> GenExprList t (ConcatContexts c d)
 
--- This supposedly requires ImpredicativeTypes, which we don't have in ghc-8.10.6
---
+genExprListSingle :: t c -> GenExprList t (ConcatContexts c EmptyContext)
+genExprListSingle e = GenExprListCons e GenExprListNil
+
 genExprListFoldl :: (forall c . b -> t c -> b) -> b -> GenExprList t d -> b
 genExprListFoldl _ b GenExprListNil = b
 genExprListFoldl f b (GenExprListCons e es) = f (genExprListFoldl f b es) e
+
+genExprListFold :: (Monoid b) => (forall c . b -> t c -> b) -> GenExprList t d -> b
+genExprListFold f = genExprListFoldl f mempty
 
 type family FlattenContextList (cs :: [Context]) :: Context where
   -- TODO we should be able to define this as a lift of a term level

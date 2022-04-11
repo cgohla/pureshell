@@ -17,6 +17,7 @@ import           Data.Bifunctor        (second)
 import           Data.ByteString       (ByteString)
 import qualified Data.ByteString.Char8 as C8 (pack)
 import qualified Data.Map              as Map (Map, empty, insertLookupWithKey)
+import           Data.String           (IsString, fromString)
 import           Polysemy              (InterpreterFor, Member, Sem, makeSem,
                                         reinterpret)
 import           Polysemy.State        (State, evalState, get, put)
@@ -29,15 +30,21 @@ makeSem ''LocalNames
 class (Show i, Eq i, Ord i) => IsIdentifier i where
   reify :: i -> Maybe Integer -> i
 
-newtype LocalBashVar = LocalBashVar ByteString deriving newtype (Show, Eq, Ord)
+newtype LocalBashVarName = LocalBashVarName { getVarName :: ByteString } deriving newtype (Show, Eq, Ord)
 
-newtype SimpleBashFunName = SimpleBashFunName ByteString deriving newtype (Show, Eq, Ord)
+newtype SimpleBashFunName = SimpleBashFunName { getFunName :: ByteString } deriving newtype (Show, Eq, Ord)
 
-instance IsIdentifier LocalBashVar where
-  reify (LocalBashVar i) j = LocalBashVar $ i <> maybe mempty (C8.pack . show) j
+instance IsIdentifier LocalBashVarName where
+  reify (LocalBashVarName i) j = LocalBashVarName $ i <> maybe mempty (C8.pack . show) j
 
 instance IsIdentifier SimpleBashFunName where
   reify (SimpleBashFunName i) j = SimpleBashFunName $ i <> maybe mempty (C8.pack . show) j
+
+instance IsString LocalBashVarName where
+  fromString = LocalBashVarName . fromString
+
+instance IsString SimpleBashFunName where
+  fromString = SimpleBashFunName . fromString
 
 runLocalNames :: forall i r. (IsIdentifier i) => InterpreterFor (LocalNames i) r
 runLocalNames = evalState (LocalNamesMap $ Map.empty @i) . reinterpret reinterpretLocalNames

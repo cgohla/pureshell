@@ -20,9 +20,7 @@ import qualified Language.Bash.Syntax        as Bash (Identifier (..),
                                                       Trim (..))
 import qualified Language.Bash.Test          as Bash (Test (..), test)
 
-newtype FunName = FunName { getFunName :: ByteString } deriving newtype (Show, Eq, Ord)
-
-newtype VarName = VarName { getVarName :: ByteString } deriving newtype (Show, Eq, Ord)
+import qualified Language.PureShell.Identifiers as Ids
 
 newtype ObjectName = ObjectName { getObjectName :: ByteString } deriving newtype (Show, Eq, Ord)
 
@@ -30,18 +28,20 @@ newtype FieldName = FieldName { getFieldName :: ByteString } deriving newtype (S
 
 data Module l = Module [FunDef l] deriving (Show, Eq, Ord)
 
-data FunClosure = ClosureFromName FunName
-                | ClosureFromVar VarName deriving (Show, Eq, Ord)
+data FunClosure = ClosureFromName Ids.SimpleBashFunName
+                | ClosureFromVar Ids.LocalBashVarName deriving (Show, Eq, Ord)
 
 data ObjectCommand = EmptyObject ObjectName
-                   | DecodeObject ObjectName VarName
-                   | EncodeObject VarName ObjectName
-                   | UpdateField ObjectName FieldName VarName
-                   | ProjectField VarName ObjectName FieldName
+                   | DecodeObject ObjectName Ids.LocalBashVarName
+                   | EncodeObject Ids.LocalBashVarName ObjectName
+                   | UpdateField ObjectName FieldName Ids.LocalBashVarName
+                   | ProjectField Ids.LocalBashVarName ObjectName FieldName
                  deriving (Show, Eq, Ord)
 
 data Statement l = Literal l -- TODO we should probably rename this to 'Expression'
-                 | Application FunClosure [VarName]
+                 | Application FunClosure [Ids.LocalBashVarName]
+                 -- TODO we may want to add  another indirection layer here to allowliteral params
+
                  -- perhaps we also need variable reads here
                  deriving (Show, Eq, Ord)
 
@@ -49,12 +49,12 @@ data Sequence l = Sequence [Assignment l] (Statement l) deriving (Show, Eq, Ord)
 
 data CaseBranch l = CaseBranch l (Sequence l) deriving (Show, Eq, Ord)
 
-data Assignment l = Assignment VarName (Sequence l)
+data Assignment l = Assignment Ids.LocalBashVarName (Sequence l)
                   | ObjectCommand ObjectCommand
-                  | Case VarName VarName [CaseBranch l]
+                  | Case Ids.LocalBashVarName Ids.LocalBashVarName [CaseBranch l]
                   deriving (Show, Eq, Ord)
 
-data FunDef l = FunDef FunName [VarName] (Sequence l) deriving (Show, Eq, Ord)
+data FunDef l = FunDef Ids.SimpleBashFunName [Ids.LocalBashVarName] (Sequence l) deriving (Show, Eq, Ord)
 
 class ToBashExpression a where
   toBashExpression :: a -> Bash.Expression ()
@@ -70,10 +70,10 @@ instance (ToBashExpression l) => ToBashStatement (Statement l) where
     Literal l -> Bash.SimpleCommand (Bash.literal "echo") [(toBashExpression l)]
     Application f vs-> Bash.SimpleCommand f' vs'
       where
-        vs' = fmap (readFromVar . getVarName) vs
+        vs' = fmap (readFromVar . Ids.getVarName) vs
         f' = case f of
-               ClosureFromName n -> Bash.Literal $ Escape.bash $ getFunName n
-               ClosureFromVar v  -> readFromVar $ getVarName v
+               ClosureFromName n -> Bash.Literal $ Escape.bash $ Ids.getFunName n
+               ClosureFromVar v  -> readFromVar $ Ids.getVarName v
         readFromVar = Bash.ReadVarSafe . Bash.VarIdent . Bash.Identifier
 
 instance ToBashStatement (ObjectCommand) where
@@ -85,12 +85,12 @@ instance ToBashStatement (ObjectCommand) where
         -- unfortunately. 'Assignment.Dict' is no flexible enough.
         d  = Bash.Literal $ Escape.bash "declare"
         a  = Bash.Literal $ Escape.bash "-A"
-        v' = Bash.UnescapedLiteral $ (getObjectName o) <> "=\"${" <> getVarName v <> "}\""
+        v' = Bash.UnescapedLiteral $ (getObjectName o) <> "=\"${" <> Ids.getVarName v <> "}\""
     EncodeObject v o  -> appendBashStatements $ fmap (Bash.Assign . v') [e, (Bash.Trim Bash.ShortestLeading v'' p)]
       where
         v'  = Bash.Var w
         v'' = Bash.VarIdent w
-        w   = Bash.Identifier $ getVarName v
+        w   = Bash.Identifier $ Ids.getVarName v
         o'  = Bash.Literal $ Escape.bash $ getObjectName o
         e   = Bash.Eval $ Bash.Annotated () $ Bash.SimpleCommand d [Bash.Literal $ Escape.bash "-p", o']
         d   = Bash.Literal $ Escape.bash "declare"
@@ -98,10 +98,10 @@ instance ToBashStatement (ObjectCommand) where
     UpdateField o f v -> Bash.Assign $ Bash.Var field update
       where
         field  = Bash.Identifier $ getObjectName o <> "[" <> getFieldName f <> "]" -- TODO this should use DictUpdate
-        update = Bash.ReadVar $ Bash.VarIdent $ Bash.Identifier $ getVarName v
+        update = Bash.ReadVar $ Bash.VarIdent $ Bash.Identifier $ Ids.getVarName v
     ProjectField v o f -> Bash.Assign $ v' (Bash.ReadArray o' f')
       where
-        v' = Bash.Var $ Bash.Identifier $ getVarName v
+        v' = Bash.Var $ Bash.Identifier $ Ids.getVarName v
         o' = Bash.Identifier $ getObjectName o
         f' = Bash.Literal $ Escape.bash $ getFieldName f
 
@@ -110,12 +110,12 @@ instance (ToBashExpression l) => ToBashStatement (Assignment l) where
     Assignment v (Sequence as s) -> appendBashStatements [ss, Bash.Local $ Bash.Var i e]
       where
         ss = toBashStatement as
-        i = Bash.Identifier $ getVarName v
+        i = Bash.Identifier $ Ids.getVarName v
         e = Bash.Eval $ Bash.Annotated () $ toBashStatement s
     ObjectCommand o -> toBashStatement o
     Case v x bs -> Bash.Case x' bs'
       where
-        x' = Bash.ReadVar $ Bash.VarIdent $ Bash.Identifier $ getVarName x
+        x' = Bash.ReadVar $ Bash.VarIdent $ Bash.Identifier $ Ids.getVarName x
         bs' = fmap branch bs
           where
             branch (CaseBranch l s) = (toBashExpression l, p)
@@ -132,7 +132,7 @@ instance (ToBashExpression l) => ToBashStatement [Assignment l] where
   toBashStatement = appendBashStatements . fmap toBashStatement
 
 instance (ToBashExpression l) => ToBashStatement (FunDef l)  where
-  toBashStatement (FunDef (FunName n) ns (Sequence as s)) = Bash.Function n' a'
+  toBashStatement (FunDef (Ids.SimpleBashFunName n) ns (Sequence as s)) = Bash.Function n' a'
     where
       n' = Bash.Fancy n
       a' = Bash.Annotated () $ appendBashStatements $ entry <> ps <> [as', toBashStatement s]
@@ -150,7 +150,7 @@ instance (ToBashExpression l) => ToBashStatement (FunDef l)  where
       ps = fmap posbind $ zip [1..] ns
         where
           posbind (i, v) = Bash.Local $ Bash.Var (bindvar v) $ Bash.ReadVar $ posvar i
-          bindvar = Bash.Identifier . getVarName
+          bindvar = Bash.Identifier . Ids.getVarName
           posvar = Bash.VarSpecial . Bash.DollarNat
       as'= toBashStatement as
 

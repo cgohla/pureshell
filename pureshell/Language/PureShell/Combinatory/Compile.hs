@@ -4,73 +4,76 @@
 module Language.PureShell.Combinatory.Compile where
 
 import qualified Language.PureShell.Combinatory.Types as Combinatory
+import qualified Language.PureShell.Identifiers       as Ids
 import qualified Language.PureShell.Procedural        as Procedural
 
-import           Control.Monad.State                  (MonadState, get, put)
-import           Control.Monad.Writer                 (MonadWriter)
 import           Data.ByteString                      (ByteString)
 import qualified Data.ByteString.Char8                as C8 (pack)
-import qualified Data.Map.Strict                      as Map (Map,
-                                                              insertLookupWithKey)
+import           Data.String                          (fromString)
+import           Polysemy                             (Member, Sem)
+import           Polysemy.Writer                      (Writer)
 
 -- lowerToProcedural :: Combinatory.Module -> Procedural.Module ByteString
 -- lowerToProcedural m = undefined
 
-lowerTopLevelBind :: (MonadState LocalNames m, MonadWriter [Procedural.FunDef ByteString] m)
-                  => Combinatory.TopLevelBind -> m (Procedural.FunDef ByteString)
-lowerTopLevelBind (Combinatory.Bind i e) = fmap (Procedural.FunDef fn ps) t -- But for Abs's we need to revover the parameters
-  where
-    fn = Procedural.FunName $ C8.pack $ show i
-    t = lowerExpr e
-    ps = case e of
-      Combinatory.Abs _ _ -> error "recovering params not implemented"
-      _                   -> []
+type TopLevelFunDefs = [Procedural.FunDef ByteString]
 
-lowerLiteral :: (MonadWriter [Procedural.FunDef ByteString] m)
-             => Combinatory.Literal c ->  m (Procedural.Sequence ByteString)
-lowerLiteral = \case
+lowerTopLevelBind :: ( Member (Ids.LocalNames Ids.SimpleBashFunName) r
+                     , Member (Writer TopLevelFunDefs) r )
+                  => Combinatory.TopLevelBind -> Sem r (Procedural.FunDef ByteString)
+lowerTopLevelBind (Combinatory.Bind i e) = do
+  fn <- Ids.mkName @Ids.SimpleBashFunName $ fromString $ show i
+  t <- Ids.runLocalNames @Ids.LocalBashVarName $ lowerExpr e
+  let ps = case e of
+        Combinatory.Abs _ _ -> error "recovering params not implemented"
+        _                   -> []
+  pure $ Procedural.FunDef fn ps t
+
+lowerExprLiteral :: (Member (Writer TopLevelFunDefs) r)
+             => Combinatory.Literal c -> Sem r (Procedural.Sequence ByteString)
+lowerExprLiteral = \case
   Combinatory.StringLiteral s         -> pure $ literal s
   Combinatory.NumericLiteral (Left n) -> pure $ literal $ show n
   _                                   -> error "not implemented"
   where
     literal = Procedural.Sequence [] . Procedural.Literal . C8.pack
 
-type LocalNames = Map.Map ByteString Integer
+lowerExprApp :: ( Member (Ids.LocalNames Ids.LocalBashVarName) r
+                , Member (Ids.LocalNames Ids.SimpleBashFunName) r
+                , Member (Writer TopLevelFunDefs) r)
+             => Combinatory.Expr c -> Combinatory.ExprList d -> Sem r (Procedural.Sequence ByteString)
+lowerExprApp e es = do
+  (v, a) <- exprEvalAssign e
+  (vs, as) <- Combinatory.genExprListFold chainExprEval es
+  let b = Procedural.Application (Procedural.ClosureFromVar v) vs -- TODO if e is a Prim we may want to use the literal name
+  pure $ Procedural.Sequence (a:as) b -- lowerExpr e
 
--- TODO implement localNames and moduleLambdaNames as algebraic
--- effects (in polysemy?)  in a separate module
-
-insertLookup :: (Ord k) => (v -> v -> v) -> k -> v -> Map.Map k v -> (Maybe v, Map.Map k v)
-insertLookup f k v m = Map.insertLookupWithKey (\_ -> \x -> \y -> f x y) k v m
-
-mkVarName :: (MonadState LocalNames m) => ByteString -> m Procedural.VarName
-mkVarName b = do
-  ns <- get
-  let (i, ns') = insertLookup (+) b 1 ns
-  let j = maybe mempty show i
-  put ns'
-  pure $ Procedural.VarName $ b <> (C8.pack j)
-
-chainExprEval :: (MonadState LocalNames m, MonadWriter [Procedural.FunDef ByteString] m)
-   => m [Procedural.Assignment ByteString] -> Combinatory.Expr c -> m [Procedural.Assignment ByteString]
--- TODO we also need to return the varNames we're binding the expressions to
-chainExprEval as e = do
-  bs <- as
+exprEvalAssign :: ( Member (Ids.LocalNames Ids.LocalBashVarName) r
+                  , Member (Ids.LocalNames Ids.SimpleBashFunName) r
+                  , Member (Writer TopLevelFunDefs) r)
+               => Combinatory.Expr c -> Sem r (Ids.LocalBashVarName, Procedural.Assignment ByteString)
+exprEvalAssign e = do
   s <- lowerExpr e
-  v <- mkVarName "r"
-  let a = Procedural.Assignment v s
-  pure $ bs <> [a]
+  v <- Ids.mkName @Ids.LocalBashVarName "r"
+  pure $ (v, Procedural.Assignment v s)
 
-lowerExpr :: (MonadState LocalNames m, MonadWriter [Procedural.FunDef ByteString] m)
-          => Combinatory.Expr c -> m (Procedural.Sequence ByteString)
+chainExprEval :: ( Member (Ids.LocalNames Ids.LocalBashVarName) r
+                 , Member (Ids.LocalNames Ids.SimpleBashFunName) r
+                 , Member (Writer TopLevelFunDefs) r)
+              => Sem r ([Ids.LocalBashVarName], [Procedural.Assignment ByteString])
+              -> Combinatory.Expr c -> Sem r ([Ids.LocalBashVarName], [Procedural.Assignment ByteString])
+chainExprEval as e = do
+  (vs, bs) <- as
+  (v, a) <-  exprEvalAssign e
+  pure $ (vs <> [v], bs <> [a])
+
+lowerExpr :: ( Member (Ids.LocalNames Ids.LocalBashVarName) r
+             , Member (Ids.LocalNames Ids.SimpleBashFunName) r
+             , Member (Writer TopLevelFunDefs) r)
+          => Combinatory.Expr c -> Sem r (Procedural.Sequence ByteString)
 lowerExpr = \case
   Combinatory.Var _    -> error "needs vars in procedural"
-  Combinatory.Lit l    -> lowerLiteral l
-  Combinatory.App e es -> do
-    as <- Combinatory.genExprListFoldl chainExprEval (pure []) es
-    n <- _mkFunName "localLambda"
-    let a = Procedural.Application (Procedural.ClosureFromName _n) _vs -- CONTINUE here
-    pure $ Procedural.Sequence as a -- lowerExpr e
-    -- recursively build sequences for e and es
-    where
+  Combinatory.Lit l    -> lowerExprLiteral l
+  Combinatory.App e es -> lowerExprApp e es
+  Combinatory.Prim n   -> lowerExprPrim n
   _                    -> error "not implemented"

@@ -46,7 +46,7 @@ lowerExprApp e es = do
   (v, a) <- exprEvalAssign e
   (vs, as) <- Combinatory.genExprListFold chainExprEval es
   let b = Procedural.Application (Procedural.ClosureFromVar v) vs -- TODO if e is a Prim we may want to use the literal name
-  pure $ Procedural.Sequence (a:as) b -- lowerExpr e
+  pure $ Procedural.Sequence (a:as) b
 
 exprEvalAssign :: ( Member (Ids.LocalNames Ids.LocalBashVarName) r
                   , Member (Ids.LocalNames Ids.SimpleBashFunName) r
@@ -66,6 +66,11 @@ chainExprEval as e = do
   (vs, bs) <- as
   (v, a) <-  exprEvalAssign e
   pure $ (vs <> [v], bs <> [a])
+
+lowerExprPrim :: String -> Sem r (Procedural.Sequence ByteString)
+lowerExprPrim n = pure $ Procedural.Sequence [] $ Procedural.Application (Procedural.ClosureFromName $ Ids.SimpleBashFunName n') []
+  where
+    n' = C8.pack n -- This is very wrong
 
 lowerExpr :: ( Member (Ids.LocalNames Ids.LocalBashVarName) r
              , Member (Ids.LocalNames Ids.SimpleBashFunName) r

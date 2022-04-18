@@ -53,7 +53,7 @@ genExprListSingle :: t c -> GenExprList t (ConcatContexts c EmptyContext)
 genExprListSingle e = GenExprListCons e GenExprListNil
 
 genExprListFoldl :: (forall c . b -> t c -> b) -> b -> GenExprList t d -> b
-genExprListFoldl _ b GenExprListNil = b
+genExprListFoldl _ b GenExprListNil         = b
 genExprListFoldl f b (GenExprListCons e es) = f (genExprListFoldl f b es) e
 
 genExprListFold :: (Monoid b) => (forall c . b -> t c -> b) -> GenExprList t d -> b
@@ -98,7 +98,7 @@ data Expr (c :: Context) where -- TODO add kind sigs
   Abs  :: ((ContextIsContained c d) ~ 'True) => Sing c -> Expr d -> Expr EmptyContext
   -- DANGER the constraint seems the wrong way araiund
   -- ^ Abstraction always has to bind all free variables
-  Prim :: String -> Expr EmptyContext
+  Prim :: String -> Expr EmptyContext -- TODO add Prims to the context
   -- ^ A primitive function symbol
 -- Let :: Bind s  -> Expr c -> Expr (Singleton) -- We need let bindings
 -- Case a [Expr a] [CaseAlternative a] -- we definitely need case expressions

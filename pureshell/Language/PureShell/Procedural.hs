@@ -5,20 +5,20 @@
 {-# LANGUAGE OverloadedStrings          #-}
 module Language.PureShell.Procedural where
 
-import           Data.ByteString             (ByteString)
-import qualified Data.ByteString.Char8       as C8 (pack)
-import qualified Data.ByteString.ShellEscape as Escape (bash)
-import qualified Language.Bash               as Bash (Annotated (..),
-                                                      Assignment (..),
-                                                      Expression (..),
-                                                      FuncName (..),
-                                                      Statement (..),
-                                                      VarName (..), literal)
+import           Data.ByteString                (ByteString)
+import qualified Data.ByteString.Char8          as C8 (pack)
+import qualified Data.ByteString.ShellEscape    as Escape (bash)
+import qualified Language.Bash                  as Bash (Annotated (..),
+                                                         Assignment (..),
+                                                         Expression (..),
+                                                         FuncName (..),
+                                                         Statement (..),
+                                                         VarName (..), literal)
 
-import qualified Language.Bash.Syntax        as Bash (Identifier (..),
-                                                      SpecialVar (..),
-                                                      Trim (..))
-import qualified Language.Bash.Test          as Bash (Test (..), test)
+import qualified Language.Bash.Syntax           as Bash (Identifier (..),
+                                                         SpecialVar (..),
+                                                         Trim (..))
+import qualified Language.Bash.Test             as Bash (Test (..), test)
 
 import qualified Language.PureShell.Identifiers as Ids
 
@@ -41,8 +41,7 @@ data ObjectCommand = EmptyObject ObjectName
 data Statement l = Literal l -- TODO we should probably rename this to 'Expression'
                  | Application FunClosure [Ids.LocalBashVarName]
                  -- TODO we may want to add  another indirection layer here to allowliteral params
-
-                 -- perhaps we also need variable reads here
+--                 | Variable Ids.LocalBashVarName
                  deriving (Show, Eq, Ord)
 
 data Sequence l = Sequence [Assignment l] (Statement l) deriving (Show, Eq, Ord)

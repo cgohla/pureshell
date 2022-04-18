@@ -1,5 +1,6 @@
-{-# LANGUAGE GADTs      #-}
-{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE GADTs          #-}
+{-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE LambdaCase     #-}
 
 module Language.PureShell.Combinatory.Compile where
 
@@ -9,9 +10,10 @@ import qualified Language.PureShell.Procedural        as Procedural
 
 import           Data.ByteString                      (ByteString)
 import qualified Data.ByteString.Char8                as C8 (pack)
+import           Data.Singletons
 import           Data.String                          (fromString)
 import           Polysemy                             (Member, Sem)
-import           Polysemy.Writer                      (Writer)
+import           Polysemy.Writer                      (Writer, tell)
 
 -- lowerToProcedural :: Combinatory.Module -> Procedural.Module ByteString
 -- lowerToProcedural m = undefined
@@ -72,6 +74,23 @@ lowerExprPrim n = pure $ Procedural.Sequence [] $ Procedural.Application (Proced
   where
     n' = C8.pack n -- This is very wrong
 
+lowerExprAbs :: ( Member (Ids.LocalNames Ids.SimpleBashFunName) r
+                , Member (Writer TopLevelFunDefs) r)
+             => Sing (c :: Combinatory.Context) -> Combinatory.Expr d -> Sem r (Procedural.Sequence ByteString)
+             -- NOTE we are not actually enforcing the binding
+             -- constraint here anymore. maybe there is an easy way to
+             -- do that
+lowerExprAbs c e = Ids.runLocalNames @Ids.LocalBashVarName $ do
+  n <- Ids.mkName @Ids.SimpleBashFunName "lambda"
+  let mkName' = Ids.mkName @Ids.LocalBashVarName . Ids.LocalBashVarName . C8.pack . show
+  -- TODO this should guarantee we are starting a new local scope
+  vs <- traverse mkName' $ Combinatory.unContext $ fromSing c
+  s <- lowerExpr e
+  let f = Procedural.FunDef n vs s
+  tell @TopLevelFunDefs [f]
+  let a = Procedural.Application (Procedural.ClosureFromName n) []
+  pure $ Procedural.Sequence [] a
+
 lowerExpr :: ( Member (Ids.LocalNames Ids.LocalBashVarName) r
              , Member (Ids.LocalNames Ids.SimpleBashFunName) r
              , Member (Writer TopLevelFunDefs) r)
@@ -80,5 +99,5 @@ lowerExpr = \case
   Combinatory.Var _    -> error "needs vars in procedural"
   Combinatory.Lit l    -> lowerExprLiteral l
   Combinatory.App e es -> lowerExprApp e es
+  Combinatory.Abs c e  -> lowerExprAbs c e
   Combinatory.Prim n   -> lowerExprPrim n
-  _                    -> error "not implemented"

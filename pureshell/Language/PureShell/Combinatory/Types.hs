@@ -23,13 +23,13 @@ import           GHC.Word                     (Word8)
 
 data OnlyByteStrings
 
-data Foo = Foo1 | Foo2 deriving (Eq, Show, Ord)
+data Foo = Foo1 | Foo2 | Bar1 | Bar3 | Boom4  deriving (Eq, Show, Ord)
 
 instance PEq Foo where
 
 genSingletons [''Foo]
 
-newtype Context = Context [Foo] -- we really need to figure out how to handle strings / chars here.
+newtype Context = Context { unContext :: [Foo] } deriving (Eq, Show, Ord)-- we really need to figure out how to handle strings / chars here.
 
 -- wow, type synonyms are not handled transparently by singletons
 
@@ -37,7 +37,11 @@ genSingletons [''Context]
 
 type EmptyContext = 'Context '[]
 
-type SingletonContext s = 'Context '[s]
+type SingletonContext s = 'Context '[s] -- TODO figure out how to get this using function promotion
+
+-- TODO we also need a way to actually construct singleton values of these
+singletonContext :: Foo -> Context
+singletonContext f = Context [f]
 
 type family ConcatContexts x y where
   ConcatContexts ('Context a) ('Context b) = 'Context (a ++ b)
@@ -95,9 +99,8 @@ data Expr (c :: Context) where -- TODO add kind sigs
   -- this should closely match corefn literals
   App  :: Expr c -> ExprList d -> Expr (ConcatContexts c d)
   -- ^ Application of multiple terms
-  Abs  :: ((ContextIsContained c d) ~ 'True) => Sing c -> Expr d -> Expr EmptyContext
-  -- DANGER the constraint seems the wrong way araiund
-  -- ^ Abstraction always has to bind all free variables
+  Abs  :: ((ContextIsContained d c) ~ 'True) => Sing c -> Expr d -> Expr EmptyContext
+  -- ^ The constraint ensures that all free variables of the expression are bound
   Prim :: String -> Expr EmptyContext -- TODO add Prims to the context
   -- ^ A primitive function symbol
 -- Let :: Bind s  -> Expr c -> Expr (Singleton) -- We need let bindings

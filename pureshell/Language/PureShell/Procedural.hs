@@ -41,7 +41,7 @@ data ObjectCommand = EmptyObject ObjectName
 data Statement l = Literal l -- TODO we should probably rename this to 'Expression'
                  | Application FunClosure [Ids.LocalBashVarName]
                  -- TODO we may want to add  another indirection layer here to allowliteral params
---                 | Variable Ids.LocalBashVarName
+                 | Variable Ids.LocalBashVarName -- NOTE this seems clunky
                  deriving (Show, Eq, Ord)
 
 data Sequence l = Sequence [Assignment l] (Statement l) deriving (Show, Eq, Ord)
@@ -74,6 +74,8 @@ instance (ToBashExpression l) => ToBashStatement (Statement l) where
                ClosureFromName n -> Bash.Literal $ Escape.bash $ Ids.getFunName n
                ClosureFromVar v  -> readFromVar $ Ids.getVarName v
         readFromVar = Bash.ReadVarSafe . Bash.VarIdent . Bash.Identifier
+    Variable i -> Bash.SimpleCommand (Bash.literal "echo") [(Bash.ReadVarSafe . Bash.VarIdent . Bash.Identifier . Ids.getVarName) i]
+    -- TODO this needs fixing up
 
 instance ToBashStatement (ObjectCommand) where
   toBashStatement = \case
@@ -111,6 +113,7 @@ instance (ToBashExpression l) => ToBashStatement (Assignment l) where
         ss = toBashStatement as
         i = Bash.Identifier $ Ids.getVarName v
         e = Bash.Eval $ Bash.Annotated () $ toBashStatement s
+        -- TODO Eval is only needed if s in the Sequence is is an Application
     ObjectCommand o -> toBashStatement o
     Case v x bs -> Bash.Case x' bs'
       where
@@ -132,6 +135,7 @@ instance (ToBashExpression l) => ToBashStatement [Assignment l] where
 
 instance (ToBashExpression l) => ToBashStatement (FunDef l)  where
   toBashStatement (FunDef (Ids.SimpleBashFunName n) ns (Sequence as s)) = Bash.Function n' a'
+  -- TODO branch on s, i.e., the Statement constructor
     where
       n' = Bash.Fancy n
       a' = Bash.Annotated () $ appendBashStatements $ entry <> ps <> [as', toBashStatement s]

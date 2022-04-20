@@ -91,12 +91,15 @@ lowerExprAbs c e = Ids.runLocalNames @Ids.LocalBashVarName $ do
   let a = Procedural.Application (Procedural.ClosureFromName n) []
   pure $ Procedural.Sequence [] a
 
+lowerExprVar :: Sing (s :: Combinatory.Foo) -> Sem r (Procedural.Sequence ByteString)
+lowerExprVar n  = pure $ Procedural.Sequence [] $ Procedural.Variable $ Ids.LocalBashVarName $ C8.pack $ show $ fromSing n
+
 lowerExpr :: ( Member (Ids.LocalNames Ids.LocalBashVarName) r
              , Member (Ids.LocalNames Ids.SimpleBashFunName) r
              , Member (Writer TopLevelFunDefs) r)
           => Combinatory.Expr c -> Sem r (Procedural.Sequence ByteString)
 lowerExpr = \case
-  Combinatory.Var _    -> error "needs vars in procedural"
+  Combinatory.Var n    -> lowerExprVar n
   Combinatory.Lit l    -> lowerExprLiteral l
   Combinatory.App e es -> lowerExprApp e es
   Combinatory.Abs c e  -> lowerExprAbs c e

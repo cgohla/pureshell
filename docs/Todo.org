@@ -8,13 +8,28 @@
 ** TODO Eliminate recursive let blocks
 ** TODO Turn all lambda abstractions into closed terms
 
-* Usability
-** TODO Improve the suite of examples, i.e., output them selectively
-** TODO Write integration test
+* Transformations of the combinatory IR
 
+* Augmentation of the combinatory IR
+** Parametrize the Expr type with an arity
+   This should help us evaluare unsaturated closures.
+   
 * Procedural IR optimizations
   These might need to operate on the bash grammar
 ** TODO Eliminate unused variable definitions, in particular unused bindings of positional parameters
+** TODO Reuse local variables, i.e, a register allocation scheme
 ** TODO Substitute single use bindings with their values
 ** TODO Function inlining, also for foreign functions
-** TODO Tail call to loop transformation
+** TODO Tail call to loop transformation (modulo constructors)
+   We need an algorithm to find cycles in the the call graph. This will of course
+   only work over the functions defined in one modules.
+
+   For this to work on the level of the procedural code, we will need
+   a representation of constructors there.
+
+* Usability
+** TODO Improve the suite of examples, i.e., output them selectively
+** TODO Write integration test
+** TODO Implement some command line switches.
+   We probably need to follow some API to work with spago
+

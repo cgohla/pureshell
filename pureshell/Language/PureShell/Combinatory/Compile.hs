@@ -26,9 +26,9 @@ type TopLevelFunDefs = [Procedural.FunDef ByteString]
 
 lowerTopLevelBind :: ( Member (Ids.LocalNames Ids.SimpleBashFunName) r
                      , Member (Writer TopLevelFunDefs) r )
-                  => Combinatory.TopLevelBind -> Sem r (Procedural.FunDef ByteString)
+                  => Combinatory.TopLevelBind s -> Sem r (Procedural.FunDef ByteString)
 lowerTopLevelBind (Combinatory.Bind i e) = do
-  fn <- Ids.mkName @Ids.SimpleBashFunName $ fromString $ show i
+  fn <- Ids.mkName @Ids.SimpleBashFunName $ fromString $ show $ fromSing i
   t <- Ids.runLocalNames @Ids.LocalBashVarName $ lowerExpr e
   let ps = case e of
         Combinatory.Abs _ _ -> error "recovering params not implemented"
@@ -85,7 +85,10 @@ lowerExprAbs :: ( Member (Ids.LocalNames Ids.SimpleBashFunName) r
              -- constraint here anymore. maybe there is an easy way to
              -- do that
 lowerExprAbs c e = Ids.runLocalNames @Ids.LocalBashVarName $ do
+  -- TODO this might be bad, i.e., running a concrete implementation
+  -- in business code. Use 'bracket' and 'resources' here.
   n <- Ids.mkName @Ids.SimpleBashFunName "lambda"
+  -- TODO generalize, so we can include a better name
   let mkName' = Ids.mkName @Ids.LocalBashVarName . Ids.LocalBashVarName . C8.pack . show
   -- TODO this should guarantee we are starting a new local scope
   vs <- traverse mkName' $ Combinatory.unContext $ fromSing c
@@ -94,6 +97,26 @@ lowerExprAbs c e = Ids.runLocalNames @Ids.LocalBashVarName $ do
   tell @TopLevelFunDefs [f]
   let a = Procedural.Application (Procedural.ClosureFromName n) []
   pure $ Procedural.Sequence [] a
+
+lowerExprLet :: ( Member (Ids.LocalNames Ids.SimpleBashFunName) r
+                , Member (Ids.LocalNames Ids.LocalBashVarName) r
+                , Member (Writer TopLevelFunDefs) r)
+             => Combinatory.Bind s c -> Combinatory.Expr d -> Sem r (Procedural.Sequence ByteString)
+lowerExprLet (Combinatory.Bind i e) f = do
+  let mkName' = Ids.mkName @Ids.LocalBashVarName . Ids.LocalBashVarName . C8.pack . show
+  n <- mkName' $ fromSing i
+  b <- Procedural.Assignment n <$> lowerExpr e
+  Procedural.Sequence s a <- lowerExpr f
+  -- TODO this is not quite right. f needs to be able to capture
+  -- i. but if i is already taken, we will get a different name back,
+  -- and the capute would fail.
+  --
+  -- the question seems to be how to shadow correctly. we could use a
+  -- naming effect to make sure that variable references in f are
+  -- resolved correctly.
+  pure $ Procedural.Sequence (b:s) a
+  -- TODO implement a renaming effect 
+
 
 lowerExprVar :: Sing (s :: Combinatory.Foo) -> Sem r (Procedural.Sequence ByteString)
 lowerExprVar n  = pure $ Procedural.Sequence [] $ Procedural.Variable $ Ids.LocalBashVarName $ C8.pack $ show $ fromSing n
@@ -108,3 +131,4 @@ lowerExpr = \case
   Combinatory.App e es -> lowerExprApp e es
   Combinatory.Abs c e  -> lowerExprAbs c e
   Combinatory.Prim n   -> lowerExprPrim n
+  Combinatory.Let b e  -> lowerExprLet b e

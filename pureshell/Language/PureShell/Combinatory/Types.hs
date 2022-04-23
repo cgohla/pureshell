@@ -20,6 +20,7 @@ import           Data.Singletons.Prelude.Eq
 import           Data.Singletons.Prelude.List
 import           Data.Singletons.TH           (genSingletons)
 import           Data.Text                    (Text)
+import           Data.Type.Bool               (If)
 import           GHC.TypeLits                 (Symbol)
 import           GHC.Word                     (Word8)
 
@@ -80,6 +81,11 @@ type family ContextIsContained c d where
   ContextIsContained ('Context '[]) _    = 'True
   ContextIsContained ('Context (s:ss)) d = And [SymbolIsContained s d, ContextIsContained ('Context ss) d]
 
+type family RemoveFromContext s c where
+  RemoveFromContext s ('Context '[])       = 'Context '[]
+  RemoveFromContext s ('Context (n ': ns)) = ConcatContexts (If (s == n) EmptyContext (SingletonContext n))
+                                             (RemoveFromContext s ('Context ns))
+
 -- data Bind = Bind Foo (Expr c) deriving (Show, Eq, Ord)
 
 data ObjectRow c where
@@ -96,7 +102,7 @@ data Literal c where
 
 -- | This is the heart of this module
 data Expr (c :: Context) where -- TODO add kind sigs
-  Var  :: Sing s -> Expr (SingletonContext s)
+  Var  :: Sing (s :: Foo) -> Expr (SingletonContext s)
   Lit  :: Literal c -> Expr c -- TODO parametrize over the contained literals
   -- this should closely match corefn literals
   App  :: Expr c -> ExprList d -> Expr (ConcatContexts c d)
@@ -105,7 +111,7 @@ data Expr (c :: Context) where -- TODO add kind sigs
   -- ^ The constraint ensures that all free variables of the expression are bound
   Prim :: String -> Expr EmptyContext -- TODO add Prims to the context
   -- ^ A primitive function symbol
--- Let :: Bind s  -> Expr c -> Expr (Singleton) -- We need let bindings
+  Let :: Bind s c -> Expr d -> Expr (ConcatContexts c (RemoveFromContext s d))
 -- Case a [Expr a] [CaseAlternative a] -- we definitely need case expressions
 
 -- TODO these are nice to have
@@ -135,11 +141,11 @@ data Expr (c :: Context) where -- TODO add kind sigs
 -- type family Ident x where
 --   Ident OnlyByteStrings = ByteString
 
-type TopLevelBindList = GenExprList Bind EmptyContext
+type TopLevelBindList = GenExprList (forall s. Bind s) EmptyContext
 
-type TopLevelBind = Bind EmptyContext
+type TopLevelBind s = Bind s EmptyContext
 
-data Bind c where
-  Bind :: Foo -> Expr c -> Bind c -- TODO maybe the identifier needs to be Sing'ed later
+data Bind s c where
+  Bind :: Sing (s :: Foo) -> Expr c -> Bind s c
 
 data Module = TopLevelBindList

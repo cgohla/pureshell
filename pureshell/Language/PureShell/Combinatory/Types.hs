@@ -141,11 +141,24 @@ data Expr (c :: Context) where -- TODO add kind sigs
 -- type family Ident x where
 --   Ident OnlyByteStrings = ByteString
 
-type TopLevelBindList = GenExprList (forall s. Bind s) EmptyContext
-
 type TopLevelBind s = Bind s EmptyContext
 
-data Bind s c where
+data Bind s c where -- TODO this might not be exactly the right name for this type
   Bind :: Sing (s :: Foo) -> Expr c -> Bind s c
 
-data Module = TopLevelBindList
+data Bind' c where
+  Bind' :: Foo -> Expr c -> Bind' c
+
+data Module (ss :: [a]) where
+  ModuleNil :: Module '[]
+  ModuleCons :: TopLevelBind s -> Module ss -> Module (s':ss)
+
+singletonModule :: TopLevelBind s -> Module '[s]
+singletonModule b = ModuleCons b ModuleNil
+
+moduleFoldl :: (forall s . a -> TopLevelBind s -> a) -> a -> Module ss -> a
+moduleFoldl _ a ModuleNil        = a
+moduleFoldl f a (ModuleCons b m) = f (moduleFoldl f a m) b
+
+moduleFold :: (Monoid a) => (forall s . a -> TopLevelBind s -> a) -> Module ss -> a
+moduleFold f m = moduleFoldl f mempty m

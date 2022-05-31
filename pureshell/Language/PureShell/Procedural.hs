@@ -28,6 +28,12 @@ newtype FieldName = FieldName { getFieldName :: ByteString } deriving newtype (S
 
 data Module l = Module [FunDef l] deriving (Show, Eq, Ord)
 
+instance Semigroup (Module l) where
+  (Module m) <> (Module n) = Module (n <> m)
+
+instance Monoid (Module l) where
+  mempty = Module []
+
 data FunClosure = ClosureFromName Ids.SimpleBashFunName
                 | ClosureFromVar Ids.LocalBashVarName deriving (Show, Eq, Ord)
 

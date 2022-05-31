@@ -1,11 +1,12 @@
-{-# LANGUAGE DataKinds         #-}
-{-# LANGUAGE FlexibleContexts  #-}
-{-# LANGUAGE GADTs             #-}
-{-# LANGUAGE KindSignatures    #-}
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TypeApplications  #-}
-
+{-# LANGUAGE DataKinds          #-}
+{-# LANGUAGE FlexibleContexts   #-}
+{-# LANGUAGE GADTs              #-}
+{-# LANGUAGE ImpredicativeTypes #-}
+{-# LANGUAGE KindSignatures     #-}
+{-# LANGUAGE LambdaCase         #-}
+{-# LANGUAGE OverloadedStrings  #-}
+{-# LANGUAGE PolyKinds          #-}
+{-# LANGUAGE TypeApplications   #-}
 module Language.PureShell.Combinatory.Compile where
 
 import qualified Language.PureShell.Combinatory.Types as Combinatory
@@ -14,15 +15,43 @@ import qualified Language.PureShell.Procedural        as Procedural
 
 import           Data.ByteString                      (ByteString)
 import qualified Data.ByteString.Char8                as C8 (pack)
+import           Data.List.Extra                      (snoc)
 import           Data.Singletons
 import           Data.String                          (fromString)
-import           Polysemy                             (Member, Sem)
-import           Polysemy.Writer                      (Writer, tell)
-
--- lowerToProcedural :: Combinatory.Module -> Procedural.Module ByteString
--- lowerToProcedural m = undefined
+import           Polysemy                             (Member, Sem, run)
+import           Polysemy.Writer                      (Writer, runWriter, tell)
 
 type TopLevelFunDefs = [Procedural.FunDef ByteString]
+
+exampleModule1 :: Combinatory.Module '[ 'Combinatory.Foo2 , 'Combinatory.Foo1]
+exampleModule1 = Combinatory.ModuleCons (Combinatory.Bind (sing @'Combinatory.Foo2) $ Combinatory.Lit $ Combinatory.StringLiteral "boo") $
+                 -- TODO we are probably gonna want some convenience functions here.
+                 Combinatory.ModuleCons (Combinatory.Bind (sing @'Combinatory.Foo1) $ Combinatory.Lit $ Combinatory.StringLiteral "hello")
+                 Combinatory.ModuleNil
+
+-- TODO make this compile
+exampleModule2 :: Combinatory.Module '[ 'Combinatory.Foo2 , 'Combinatory.Foo1]
+exampleModule2 = Combinatory.ModuleCons (Combinatory.Bind (sing @'Combinatory.Foo2) $ Combinatory.Lit $ Combinatory.StringLiteral "boo") $
+                 Combinatory.ModuleCons (Combinatory.Bind (sing @'Combinatory.Foo1) $ concat)
+                 Combinatory.ModuleNil
+  where
+    concat = Combinatory.Abs (sing @(Combinatory.ConcatContexts (Combinatory.SingletonContext Combinatory.Bar1)
+                                     (Combinatory.SingletonContext Combinatory.Bar3)
+                                    )
+                             )
+      (Combinatory.App (Combinatory.Prim "printf '%s%s' ") ( Combinatory.GenExprListCons (Combinatory.Var $ sing @'Combinatory.Bar1) $
+                                                             Combinatory.GenExprListCons (Combinatory.Var $ sing @'Combinatory.Bar3) $
+                                                             Combinatory.GenExprListNil)
+      )
+
+-- | Presumably the main entry point in this module
+lowerModule :: Combinatory.Module (ss :: [Combinatory.Foo]) -> Procedural.Module ByteString
+lowerModule = Combinatory.moduleFold f
+  where
+    f n b = n <> (Procedural.Module $ lowerOneTopLevelDefn b)
+
+lowerOneTopLevelDefn :: forall s. Combinatory.TopLevelBind (s :: Combinatory.Foo) -> TopLevelFunDefs
+lowerOneTopLevelDefn = uncurry snoc . run . runWriter @TopLevelFunDefs . Ids.runLocalNames @Ids.SimpleBashFunName . lowerTopLevelBind
 
 lowerTopLevelBind :: ( Member (Ids.LocalNames Ids.SimpleBashFunName) r
                      , Member (Writer TopLevelFunDefs) r )
@@ -115,7 +144,7 @@ lowerExprLet (Combinatory.Bind i e) f = do
   -- naming effect to make sure that variable references in f are
   -- resolved correctly.
   pure $ Procedural.Sequence (b:s) a
-  -- TODO implement a renaming effect 
+  -- TODO implement a renaming effect
 
 
 lowerExprVar :: Sing (s :: Combinatory.Foo) -> Sem r (Procedural.Sequence ByteString)

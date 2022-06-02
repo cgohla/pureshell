@@ -58,11 +58,16 @@ lowerTopLevelBind :: ( Member (Ids.LocalNames Ids.SimpleBashFunName) r
                   => Combinatory.TopLevelBind s -> Sem r (Procedural.FunDef ByteString)
 lowerTopLevelBind (Combinatory.Bind i e) = do
   fn <- Ids.mkName @Ids.SimpleBashFunName $ fromString $ show $ fromSing i
-  t <- Ids.runLocalNames @Ids.LocalBashVarName $ lowerExpr e
-  let ps = case e of
-        Combinatory.Abs _ _ -> error "recovering params not implemented"
-        _                   -> []
-  pure $ Procedural.FunDef fn ps t
+  let lowerExpr' = Ids.runLocalNames @Ids.LocalBashVarName . lowerExpr
+  case e of
+    C.Abs c f -> P.FunDef fn ps <$> lowerExpr' f
+      where
+        ps = fmap mkParamName $ C.unContext $ fromSing c
+        mkParamName :: C.Foo -> Ids.LocalBashVarName -- apparently the sig is required
+        mkParamName = Ids.LocalBashVarName . C8.pack . show
+    _ -> P.FunDef fn [] <$> t
+      where
+        t = lowerExpr' e
 
 lowerExprLiteral :: (Member (Writer TopLevelFunDefs) r)
              => Combinatory.Literal c -> Sem r (Procedural.Sequence ByteString)

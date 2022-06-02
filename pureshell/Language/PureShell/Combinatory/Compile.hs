@@ -23,23 +23,6 @@ import           Polysemy.Writer                      (Writer, runWriter, tell)
 
 type TopLevelFunDefs = [P.FunDef ByteString]
 
-exampleModule1 :: C.Module '[ 'C.Foo2 , 'C.Foo1]
-exampleModule1 = C.ModuleCons (C.Bind (sing @'C.Foo2) $ C.Lit $ C.StringLiteral "boo") $
-                 -- TODO we are probably gonna want some convenience functions here.
-                 C.ModuleCons (C.Bind (sing @'C.Foo1) $ C.Lit $ C.StringLiteral "hello")
-                 C.ModuleNil
-
--- TODO make this compile
-exampleModule2 :: C.Module '[ 'C.Foo1]
-exampleModule2 = C.ModuleCons (C.Bind (sing @'C.Foo1) $ concat)
-                 C.ModuleNil
-  where
-    concat = C.Abs (sing @(C.ConcatContexts (C.SingletonContext C.Bar1) (C.SingletonContext C.Bar3)))
-      (C.App (C.Prim "printf '%s%s' ") ( C.GenExprListCons (C.Var $ sing @'C.Bar1) $
-                                                             C.GenExprListCons (C.Var $ sing @'C.Bar3) $
-                                                             C.GenExprListNil)
-      )
-
 -- | Presumably the main entry point in this module
 lowerModule :: C.Module (ss :: [C.Foo]) -> P.Module ByteString
 lowerModule = C.moduleFold f

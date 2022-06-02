@@ -61,6 +61,7 @@ library
                        , Language.PureShell.Procedural
                        , Language.Bash.Test, Language.PureShell.Combinatory.Types
                        , Language.PureShell.Combinatory.Compile
+                       , Language.PureShell.Combinatory.Examples
                        , Language.PureShell.Identifiers
                        , App.Driver
         ghc-options : -Wall

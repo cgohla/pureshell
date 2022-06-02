@@ -145,7 +145,7 @@ instance (ToBashExpression l) => ToBashStatement (FunDef l)  where
     where
       n' = Bash.Fancy n
       a' = Bash.Annotated () $ appendBashStatements $ entry <> ps <> [as', toBashStatement s]
-      entry = [Bash.IfThen c r]
+      entry = [Bash.IfThen c r] -- TODO skip the entry for nullary functions
         where
           c = Bash.Annotated () $ Bash.test $ Bash.ARGVLength `Bash.Test_lt` length' ns
             where

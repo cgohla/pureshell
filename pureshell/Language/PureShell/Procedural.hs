@@ -154,7 +154,7 @@ instance (ToBashExpression l) => ToBashStatement (FunDef l)  where
             where
               echoClosure = Bash.SimpleCommand (Bash.Literal $ Escape.bash "echo")
                             [Bash.Literal $ Escape.bash n, Bash.ARGVElements]
-              exit = Bash.SimpleCommand (Bash.Literal $ Escape.bash "exit")
+              exit = Bash.SimpleCommand (Bash.Literal $ Escape.bash "return")
                      [Bash.Literal $ Escape.bash "0"]
       ps = fmap posbind $ zip [1..] ns
         where

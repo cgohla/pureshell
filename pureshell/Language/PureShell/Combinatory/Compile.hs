@@ -86,10 +86,21 @@ chainExprEval as e = do
   (v, a) <-  exprEvalAssign e
   pure $ (vs <> [v], bs <> [a])
 
+-- lowerExprPrim :: String -> Sem r (P.Sequence ByteString)
+-- lowerExprPrim n = pure $ P.Sequence [] $ P.Application (P.ClosureFromName $ Ids.SimpleBashFunName n') []
+--   where
+--     n' = C8.pack n -- This is very wrong
 lowerExprPrim :: String -> Sem r (P.Sequence ByteString)
-lowerExprPrim n = pure $ P.Sequence [] $ P.Application (P.ClosureFromName $ Ids.SimpleBashFunName n') []
+lowerExprPrim n = pure $ P.Sequence [] $ P.Literal n'
   where
     n' = C8.pack n -- This is very wrong
+
+-- TODO this change doesn't solve the problem. We need a Prim value in
+-- Procedural as well.
+
+-- TODO It might be worthwhile to decouple the type for value literals
+-- and parametrize Combinatory and Procedural over it. (This is a
+-- separate issue from the above).
 
 lowerExprAbs :: ( Member (Ids.LocalNames Ids.SimpleBashFunName) r
                 , Member (Writer TopLevelFunDefs) r)

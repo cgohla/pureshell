@@ -44,13 +44,13 @@ data ObjectCommand = EmptyObject ObjectName
                    | ProjectField Ids.LocalBashVarName ObjectName FieldName
                  deriving (Show, Eq, Ord)
 
-data Statement l = Literal l -- TODO we should probably rename this to 'Expression'
-                 | Application FunClosure [Ids.LocalBashVarName]
-                 -- TODO we may want to add  another indirection layer here to allowliteral params
-                 | Variable Ids.LocalBashVarName -- NOTE this seems clunky
-                 deriving (Show, Eq, Ord)
+data Expression l = Literal l
+                   | Application FunClosure [Ids.LocalBashVarName]
+                   -- TODO we may want to add  another indirection layer here to allowliteral params
+                   | Variable Ids.LocalBashVarName -- NOTE this seems clunky
+                   deriving (Show, Eq, Ord)
 
-data Sequence l = Sequence [Assignment l] (Statement l) deriving (Show, Eq, Ord)
+data Sequence l = Sequence [Assignment l] (Expression l) deriving (Show, Eq, Ord)
 
 data CaseBranch l = CaseBranch l (Sequence l) deriving (Show, Eq, Ord)
 
@@ -67,21 +67,23 @@ class ToBashExpression a where
 instance ToBashExpression ByteString where
   toBashExpression l = Bash.Literal $ Escape.bash l
 
+applicationAsStatement :: FunClosure -> [Ids.LocalBashVarName] -> Bash.Statement ()
+applicationAsStatement f vs = Bash.SimpleCommand f' vs'
+  where
+    vs' = fmap (readFromVar . Ids.getVarName) vs
+    f' = case f of
+           ClosureFromName n -> Bash.Literal $ Escape.bash $ Ids.getFunName n
+           ClosureFromVar v  -> readFromVar $ Ids.getVarName v
+    readFromVar = Bash.ReadVarSafe . Bash.VarIdent . Bash.Identifier
+
+instance (ToBashExpression l) => ToBashExpression (Expression l) where
+  toBashExpression = \case
+    Literal l -> toBashExpression l
+    Application f vs-> Bash.Eval $ Bash.Annotated () $ applicationAsStatement f vs
+    Variable i -> Bash.ReadVarSafe $ Bash.VarIdent $ Bash.Identifier $ Ids.getVarName i
+
 class ToBashStatement a where
   toBashStatement :: a -> Bash.Statement ()
-
-instance (ToBashExpression l) => ToBashStatement (Statement l) where
-  toBashStatement = \case
-    Literal l -> Bash.SimpleCommand (Bash.literal "echo") [(toBashExpression l)]
-    Application f vs-> Bash.SimpleCommand f' vs'
-      where
-        vs' = fmap (readFromVar . Ids.getVarName) vs
-        f' = case f of
-               ClosureFromName n -> Bash.Literal $ Escape.bash $ Ids.getFunName n
-               ClosureFromVar v  -> readFromVar $ Ids.getVarName v
-        readFromVar = Bash.ReadVarSafe . Bash.VarIdent . Bash.Identifier
-    Variable i -> Bash.SimpleCommand (Bash.literal "echo") [(Bash.ReadVarSafe . Bash.VarIdent . Bash.Identifier . Ids.getVarName) i]
-    -- TODO this needs fixing up
 
 instance ToBashStatement (ObjectCommand) where
   toBashStatement = \case
@@ -118,8 +120,7 @@ instance (ToBashExpression l) => ToBashStatement (Assignment l) where
       where
         ss = toBashStatement as
         i = Bash.Identifier $ Ids.getVarName v
-        e = Bash.Eval $ Bash.Annotated () $ toBashStatement s
-        -- TODO Eval is only needed if s in the Sequence is is an Application
+        e = toBashExpression s
     ObjectCommand o -> toBashStatement o
     Case v x bs -> Bash.Case x' bs'
       where
@@ -141,21 +142,25 @@ instance (ToBashExpression l) => ToBashStatement [Assignment l] where
 
 instance (ToBashExpression l) => ToBashStatement (FunDef l)  where
   toBashStatement (FunDef (Ids.SimpleBashFunName n) ns (Sequence as s)) = Bash.Function n' a'
-  -- TODO branch on s, i.e., the Statement constructor
     where
       n' = Bash.Fancy n
-      a' = Bash.Annotated () $ appendBashStatements $ entry <> ps <> [as', toBashStatement s]
-      entry = [Bash.IfThen c r] -- TODO skip the entry for nullary functions
-        where
-          c = Bash.Annotated () $ Bash.test $ Bash.ARGVLength `Bash.Test_lt` length' ns
-            where
-              length' xs = Bash.Literal $ Escape.bash $ C8.pack $ show $ length xs
-          r = Bash.Annotated () $ appendBashStatements [echoClosure, exit]
-            where
-              echoClosure = Bash.SimpleCommand (Bash.Literal $ Escape.bash "echo")
-                            [Bash.Literal $ Escape.bash n, Bash.ARGVElements]
-              exit = Bash.SimpleCommand (Bash.Literal $ Escape.bash "return")
-                     [Bash.Literal $ Escape.bash "0"]
+      a' = Bash.Annotated () $ appendBashStatements $ entry <> ps <> [as', expressionAsStatement s]
+      expressionAsStatement e = case e of
+        Application f vs -> applicationAsStatement f vs
+        _ -> Bash.SimpleCommand (Bash.Literal $ Escape.bash "echo") [toBashExpression e]
+      entry = case ns of
+        [] -> mempty
+        _ -> [Bash.IfThen c r]
+          where
+            c = Bash.Annotated () $ Bash.test $ Bash.ARGVLength `Bash.Test_lt` length' ns
+              where
+                length' xs = Bash.Literal $ Escape.bash $ C8.pack $ show $ length xs
+            r = Bash.Annotated () $ appendBashStatements [echoClosure, exit]
+              where
+                echoClosure = Bash.SimpleCommand (Bash.Literal $ Escape.bash "echo")
+                              [Bash.Literal $ Escape.bash n, Bash.ARGVElements]
+                exit = Bash.SimpleCommand (Bash.Literal $ Escape.bash "return")
+                       [Bash.Literal $ Escape.bash "0"]
       ps = fmap posbind $ zip [1..] ns
         where
           posbind (i, v) = Bash.Local $ Bash.Var (bindvar v) $ Bash.ReadVar $ posvar i

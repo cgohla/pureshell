@@ -1,4 +1,5 @@
 {-# LANGUAGE DataKinds      #-}
+{-# LANGUAGE GADTs          #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE TypeOperators  #-}
 module Language.PureShell.Combinatory.Examples where

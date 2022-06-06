@@ -56,12 +56,14 @@ library
         build-depends: base ^>=4.14.3.0
                      , bash, bytestring,
                        purescript-cst, purescript, binary, aeson, text, shell-escape, natural,
-                       singletons ==2.7, mtl, containers, polysemy, data-default-class, extra
+                       singletons ==2.7, mtl, containers, polysemy, data-default-class,
+                       extra, process, utf8-string, temporary
         exposed-modules: Language.PureShell, Language.PureShell.Main
                        , Language.PureShell.Procedural
                        , Language.Bash.Test, Language.PureShell.Combinatory.Types
                        , Language.PureShell.Combinatory.Compile
                        , Language.PureShell.Combinatory.Examples
+                       , Language.PureShell.Combinatory.Shell
                        , Language.PureShell.Identifiers
                        , App.Driver
         ghc-options : -Wall

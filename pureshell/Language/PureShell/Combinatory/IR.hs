@@ -12,7 +12,7 @@
 {-# LANGUAGE TypeFamilies             #-}
 {-# LANGUAGE TypeOperators            #-}
 {-# LANGUAGE UndecidableInstances     #-}
-module Language.PureShell.Combinatory.Types where
+module Language.PureShell.Combinatory.IR where
 
 import           Data.ByteString              (ByteString)
 import           Data.Singletons

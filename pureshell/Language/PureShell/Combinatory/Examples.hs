@@ -4,7 +4,7 @@
 {-# LANGUAGE TypeOperators  #-}
 module Language.PureShell.Combinatory.Examples where
 
-import qualified Language.PureShell.Combinatory.Types as C
+import qualified Language.PureShell.Combinatory.IR as C
 
 import           Data.Singletons
 

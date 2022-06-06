@@ -7,19 +7,21 @@
 {-# LANGUAGE OverloadedStrings  #-}
 {-# LANGUAGE PolyKinds          #-}
 {-# LANGUAGE TypeApplications   #-}
-module Language.PureShell.Combinatory.Compile where
+module Language.PureShell.Combinatory.Lower where
 
-import qualified Language.PureShell.Combinatory.Types as C
-import qualified Language.PureShell.Identifiers       as Ids
-import qualified Language.PureShell.Procedural        as P
+import qualified Language.PureShell.Combinatory.CodeGen as C
+import qualified Language.PureShell.Combinatory.IR      as C
+import qualified Language.PureShell.Identifiers         as Ids
+import qualified Language.PureShell.Procedural.IR       as P
 
-import           Data.ByteString                      (ByteString)
-import qualified Data.ByteString.Char8                as C8 (pack)
-import           Data.List.Extra                      (snoc)
+import           Data.ByteString                        (ByteString)
+import qualified Data.ByteString.Char8                  as C8 (pack)
+import           Data.List.Extra                        (snoc)
 import           Data.Singletons
-import           Data.String                          (fromString)
-import           Polysemy                             (Member, Sem, run)
-import           Polysemy.Writer                      (Writer, runWriter, tell)
+import           Data.String                            (fromString)
+import           Polysemy                               (Member, Sem, run)
+import           Polysemy.Writer                        (Writer, runWriter,
+                                                         tell)
 
 type TopLevelFunDefs = [P.FunDef ByteString]
 
@@ -51,11 +53,11 @@ lowerTopLevelBind (C.Bind i e) = do
 lowerExprLiteral :: (Member (Writer TopLevelFunDefs) r)
              => C.Literal c -> Sem r (P.Sequence ByteString)
 lowerExprLiteral = \case
-  C.StringLiteral s         -> pure $ literal s
-  C.NumericLiteral (Left n) -> pure $ literal $ show n
+  C.StringLiteral s         -> literal s
+  C.NumericLiteral (Left n) -> literal $ show n
   _                         -> error "not implemented"
   where
-    literal = P.Sequence [] . P.Literal . C8.pack
+    literal = C.expression . P.Literal . C8.pack
 
 lowerExprApp :: ( Member (Ids.LocalNames Ids.LocalBashVarName) r
                 , Member (Ids.LocalNames Ids.SimpleBashFunName) r
@@ -65,7 +67,7 @@ lowerExprApp e es = do
   (v, a) <- exprEvalAssign e -- TODO this produces wrong results in the case of Prim
   (vs, as) <- C.genExprListFold chainExprEval es -- TODO if an es is a Var then we should use it directly
   let b = P.Application (P.ClosureFromVar v) vs -- TODO if e is a Prim we may want to use the literal name
-  pure $ P.Sequence (a:as) b
+  C.sequence (a:as) b
 
 exprEvalAssign :: ( Member (Ids.LocalNames Ids.LocalBashVarName) r
                   , Member (Ids.LocalNames Ids.SimpleBashFunName) r
@@ -120,7 +122,7 @@ lowerExprAbs c e = Ids.runLocalNames @Ids.LocalBashVarName $ do
   let f = P.FunDef n vs s
   tell @TopLevelFunDefs [f]
   let a = P.Application (P.ClosureFromName n) [] -- TODO the empty list seems wrong
-  pure $ P.Sequence [] a
+  C.sequence [] a
 
 lowerExprLet :: ( Member (Ids.LocalNames Ids.SimpleBashFunName) r
                 , Member (Ids.LocalNames Ids.LocalBashVarName) r
@@ -138,12 +140,12 @@ lowerExprLet (C.Bind i e) f = do
   -- the question seems to be how to shadow correctly. we could use a
   -- naming effect to make sure that variable references in f are
   -- resolved correctly.
-  pure $ P.Sequence (b:s) a
+  C.sequence (b:s) a
   -- TODO implement a renaming effect
 
 
 lowerExprVar :: Sing (s :: C.Foo) -> Sem r (P.Sequence ByteString)
-lowerExprVar n  = pure $ P.Sequence [] $ P.Variable $ Ids.LocalBashVarName $ C8.pack $ show $ fromSing n
+lowerExprVar n  = C.sequence [] $ P.Variable $ Ids.LocalBashVarName $ C8.pack $ show $ fromSing n
 
 lowerExpr :: ( Member (Ids.LocalNames Ids.LocalBashVarName) r
              , Member (Ids.LocalNames Ids.SimpleBashFunName) r

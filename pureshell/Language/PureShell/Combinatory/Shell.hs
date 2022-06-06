@@ -2,17 +2,17 @@
 {-# LANGUAGE KindSignatures #-}
 module Language.PureShell.Combinatory.Shell where
 
-import qualified Language.PureShell.Combinatory.Compile as C
-import qualified Language.PureShell.Combinatory.Types   as C
-import qualified Language.PureShell.Procedural          as P
+import qualified Language.PureShell.Combinatory.IR    as C
+import qualified Language.PureShell.Combinatory.Lower as C
+import qualified Language.PureShell.Procedural.Lower  as P
 
-import           Data.ByteString.Builder                (toLazyByteString)
-import qualified Data.ByteString.Lazy.Char8             as C8 (hPut)
-import           Data.List                              (intercalate)
-import qualified Language.Bash.Script                   as Bash
-import           System.IO                              (hClose)
-import           System.IO.Temp                         (withSystemTempFile)
-import           System.Process                         (callCommand)
+import           Data.ByteString.Builder              (toLazyByteString)
+import qualified Data.ByteString.Lazy.Char8           as C8 (hPut)
+import           Data.List                            (intercalate)
+import qualified Language.Bash.Script                 as Bash
+import           System.IO                            (hClose)
+import           System.IO.Temp                       (withSystemTempFile)
+import           System.Process                       (callCommand)
 
 -- | Start a shell with a module loaded
 shellWithModule :: C.Module (c :: [C.Foo]) -> IO ()

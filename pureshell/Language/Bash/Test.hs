@@ -3,7 +3,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Language.Bash.Test where
 
-import qualified Language.Bash as Bash (Expression(..), Statement(..))
+import qualified Language.Bash    as Bash (Expression (..), Statement (..))
 import qualified Text.ShellEscape as Escape (bash)
 
 data Test t where
@@ -58,48 +58,48 @@ test :: Test t -> Bash.Statement t
 test  =  Bash.SimpleCommand (lit "test") . go
   where
     go = \case
-      Test_a e -> go1 "a" e
-      Test_b e -> go1 "b" e
-      Test_c e -> go1 "c" e
-      Test_d e -> go1 "d" e 
-      Test_e e -> go1 "e" e
-      Test_f e -> go1 "f" e
-      Test_g e -> go1 "g" e
-      Test_h e -> go1 "h" e
-      Test_L e -> go1 "L" e
-      Test_k e -> go1 "k" e
-      Test_p e -> go1 "p" e
-      Test_r e -> go1 "r" e
-      Test_s e -> go1 "s" e
-      Test_S e -> go1 "S" e
-      Test_t e -> go1 "t" e
-      Test_u e -> go1 "u" e
-      Test_w e -> go1 "w" e
-      Test_x e -> go1 "x" e
-      Test_O e -> go1 "O" e
-      Test_G e -> go1 "G" e
-      Test_N e -> go1 "N" e  
-      Test_nt e f -> go2 "nt" e f
-      Test_ot e f -> go2 "ot" e f
-      Test_ef e f -> go2 "ef" e f
-      Test_z e -> go1 "z" e  
-      Test_n e -> go1 "n" e  
-      Test_equal e f -> go2' "=" e f -- TODO make sure it's not escaped
+      Test_a e         -> go1 "a" e
+      Test_b e         -> go1 "b" e
+      Test_c e         -> go1 "c" e
+      Test_d e         -> go1 "d" e
+      Test_e e         -> go1 "e" e
+      Test_f e         -> go1 "f" e
+      Test_g e         -> go1 "g" e
+      Test_h e         -> go1 "h" e
+      Test_L e         -> go1 "L" e
+      Test_k e         -> go1 "k" e
+      Test_p e         -> go1 "p" e
+      Test_r e         -> go1 "r" e
+      Test_s e         -> go1 "s" e
+      Test_S e         -> go1 "S" e
+      Test_t e         -> go1 "t" e
+      Test_u e         -> go1 "u" e
+      Test_w e         -> go1 "w" e
+      Test_x e         -> go1 "x" e
+      Test_O e         -> go1 "O" e
+      Test_G e         -> go1 "G" e
+      Test_N e         -> go1 "N" e
+      Test_nt e f      -> go2 "nt" e f
+      Test_ot e f      -> go2 "ot" e f
+      Test_ef e f      -> go2 "ef" e f
+      Test_z e         -> go1 "z" e
+      Test_n e         -> go1 "n" e
+      Test_equal e f   -> go2' "=" e f -- TODO make sure it's not escaped
       Test_unequal e f -> go2' "!=" e f -- TODO make sure it's not escaped
-      Test_lexLT e f -> go2' "<" e f -- TODO make sure it's not escaped
-      Test_lexGT e f -> go2' ">" e f -- TODO make sure it's not escaped
-      Test_o e -> go1 "o" e
-      Test_v e -> go1 "v" e
-      Test_R e -> go1 "R" e
-      Test_negate t -> [lit "!"] <> go t -- TODO make sure it's not escaped
-      Test_and t t' -> conn "a" t t'
-      Test_or t t' -> conn "o" t t'
-      Test_eq e e' -> go2 "eq" e e'
-      Test_ne e e' -> go2 "ne" e e'
-      Test_lt e e' -> go2 "lt" e e'
-      Test_le e e' -> go2 "le" e e'
-      Test_gt e e' -> go2 "gt" e e'
-      Test_ge e e' -> go2 "ge" e e'
+      Test_lexLT e f   -> go2' "<" e f -- TODO make sure it's not escaped
+      Test_lexGT e f   -> go2' ">" e f -- TODO make sure it's not escaped
+      Test_o e         -> go1 "o" e
+      Test_v e         -> go1 "v" e
+      Test_R e         -> go1 "R" e
+      Test_negate t    -> [lit "!"] <> go t -- TODO make sure it's not escaped
+      Test_and t t'    -> conn "a" t t'
+      Test_or t t'     -> conn "o" t t'
+      Test_eq e e'     -> go2 "eq" e e'
+      Test_ne e e'     -> go2 "ne" e e'
+      Test_lt e e'     -> go2 "lt" e e'
+      Test_le e e'     -> go2 "le" e e'
+      Test_gt e e'     -> go2 "gt" e e'
+      Test_ge e e'     -> go2 "ge" e e'
     go1 x e = [lit $ "-" <> x, e]
     go2 x e f = [e, lit $ "-" <> x, f]
     go2' x e f = [e, lit x, f]

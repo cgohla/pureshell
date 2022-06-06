@@ -44,9 +44,14 @@ executable pureshell
 
     -- LANGUAGE extensions used by modules in this package.
     -- other-extensions:
-    build-depends:    base ^>=4.14.3.0, purescript,
-                      bash, aeson, bytestring, pureshell,
-                      purescript-cst, text
+    build-depends:    base ^>=4.14.3.0
+                    , aeson
+                    , bash
+                    , bytestring
+                    , purescript
+                    , purescript-cst
+                    , pureshell
+                    , text
     hs-source-dirs:   app
     default-language: Haskell2010
 
@@ -54,16 +59,35 @@ library
         hs-source-dirs: pureshell
         default-language: Haskell2010
         build-depends: base ^>=4.14.3.0
-                     , bash, bytestring,
-                       purescript-cst, purescript, binary, aeson, text, shell-escape, natural,
-                       singletons ==2.7, mtl, containers, polysemy, data-default-class,
-                       extra, process, utf8-string, temporary
-        exposed-modules: Language.PureShell, Language.PureShell.Main
-                       , Language.PureShell.Procedural
-                       , Language.Bash.Test, Language.PureShell.Combinatory.Types
-                       , Language.PureShell.Combinatory.Compile
+                     , aeson
+                     , bash
+                     , binary
+                     , bytestring
+                     , containers
+                     , data-default-class
+                     , extra
+                     , mtl
+                     , natural
+                     , polysemy
+                     , process
+                     , purescript
+                     , purescript-cst
+                     , shell-escape
+                     , singletons ==2.7
+                     , temporary
+                     , text
+                     , utf8-string
+        exposed-modules: Language.PureShell
+                       , App.Driver
+                       , Language.Bash.Test
+                       , Language.PureShell.Combinatory.CodeGen
                        , Language.PureShell.Combinatory.Examples
+                       , Language.PureShell.Combinatory.IR
+                       , Language.PureShell.Combinatory.Lower
                        , Language.PureShell.Combinatory.Shell
                        , Language.PureShell.Identifiers
-                       , App.Driver
+                       , Language.PureShell.Main
+                       , Language.PureShell.Procedural.CodeGen
+                       , Language.PureShell.Procedural.IR
+                       , Language.PureShell.Procedural.Lower
         ghc-options : -Wall

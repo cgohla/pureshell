@@ -32,4 +32,3 @@
 ** TODO Write integration test
 ** TODO Implement some command line switches.
    We probably need to follow some API to work with spago
-

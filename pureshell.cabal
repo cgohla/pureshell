@@ -69,26 +69,30 @@ library
   default-language: Haskell2010
   build-depends:
     , aeson
-    , base                ^>=4.14.3.0
+    , base                  ^>=4.14.3.0
     , bash
     , binary
     , bytestring
     , containers
     , data-default-class
     , extra
+    , filepath
     , mtl
     , natural
+    , optparse-declarative
     , polysemy
     , process
     , purescript
     , shell-escape
-    , singletons          ==2.7
+    , singletons            ==2.7
     , temporary
     , text
     , utf8-string
 
   exposed-modules:
     App.Driver
+    App.Main
+    App.Options
     Language.Bash.Test
     Language.PureShell
     Language.PureShell.Combinatory.CodeGen
@@ -97,6 +101,9 @@ library
     Language.PureShell.Combinatory.IR
     Language.PureShell.Combinatory.Lower
     Language.PureShell.Combinatory.Shell
+    Language.PureShell.CoreFn.CodeGen
+    Language.PureShell.CoreFn.IR
+    Language.PureShell.CoreFn.Lower
     Language.PureShell.Identifiers
     Language.PureShell.Main
     Language.PureShell.Procedural.CodeGen

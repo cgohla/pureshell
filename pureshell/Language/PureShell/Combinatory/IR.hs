@@ -2,6 +2,7 @@
 {-# LANGUAGE GADTs                    #-}
 {-# LANGUAGE ImpredicativeTypes       #-}
 {-# LANGUAGE KindSignatures           #-}
+{-# LANGUAGE LambdaCase               #-}
 {-# LANGUAGE MultiParamTypeClasses    #-}
 {-# LANGUAGE PolyKinds                #-}
 {-# LANGUAGE RankNTypes               #-}
@@ -12,19 +13,29 @@
 {-# LANGUAGE TypeFamilies             #-}
 {-# LANGUAGE TypeOperators            #-}
 {-# LANGUAGE UndecidableInstances     #-}
-module Language.PureShell.Combinatory.IR where
+module Language.PureShell.Combinatory.IR ( Expr(..)
+                                         , Literal(..)
+                                         , Bind(..)
+                                         , Module(..)
+                                         , SingletonContext
+                                         , GenExprList(..)
+                                         , EmptyContext
+                                         , ConcatContexts
+                                         , genExprListSingle
+                                         , Context(..)
+                                         , SContext(..)
+                                         , genExprListFold
+                                         , ExprList
+                                         , TopLevelBind
+                                         , moduleFold
+                                         ) where
 
-import           Data.ByteString              (ByteString)
 import           Data.Singletons
 import           Data.Singletons.Prelude.Eq
 import           Data.Singletons.Prelude.List
 import           Data.Singletons.TH           (genSingletons)
 import           Data.Text                    (Text)
 import           Data.Type.Bool               (If)
-import           GHC.TypeLits                 (Symbol)
-import           GHC.Word                     (Word8)
-
-import           Data.Text
 
 newtype Context ids = Context { unContext :: [ids] } deriving (Eq, Show, Ord)
 
@@ -53,9 +64,9 @@ type ExprList ids c = GenExprList ids (Expr ids) c
 
 data GenExprList ids (t :: Context ids -> *) (c :: Context ids) where
   GenExprListNil  :: GenExprList ids t EmptyContext
-  GenExprListCons :: t c -> GenExprList ids t d -> GenExprList ids t (ConcatContexts c d)
+  GenExprListCons :: t c -> GenExprList ids t d -> GenExprList ids t (c :<> d)
 
-genExprListSingle :: t c -> GenExprList ids t (ConcatContexts c EmptyContext)
+genExprListSingle :: t c -> GenExprList ids t (c :<> EmptyContext)
 genExprListSingle e = GenExprListCons e GenExprListNil
 
 genExprListFoldl :: (forall c . b -> t c -> b) -> b -> GenExprList ids t d -> b
@@ -92,7 +103,7 @@ type ObjectRows ids c = GenExprList ids (ObjectRow ids) c
 
 data Literal ids c where
   NumericLiteral :: Either Integer Double -> Literal ids EmptyContext
-  StringLiteral  :: String -> Literal ids EmptyContext -- We may need to refine this
+  StringLiteral  :: Text -> Literal ids EmptyContext
   BooleanLiteral :: Bool  -> Literal ids EmptyContext
   ArrayLiteral   :: ExprList ids c -> Literal ids c
   ObjectLiteral  :: ObjectRows ids c -> Literal ids c
@@ -102,13 +113,14 @@ data Expr ids (c :: Context ids) where -- TODO add kind sigs
   Var  :: Sing (s :: ids) -> Expr ids (SingletonContext s)
   Lit  :: Literal ids c -> Expr ids c -- TODO parametrize over the contained literals
   -- this should closely match corefn literals
-  App  :: Expr ids c -> ExprList ids d -> Expr ids (ConcatContexts c d)
+  App  :: Expr ids c -> ExprList ids d -> Expr ids (c :<> d)
   -- ^ Application of multiple terms
-  Abs  :: ((ContextIsContained d c) ~ 'True) => Sing (c :: Context ids) -> Expr ids d -> Expr ids EmptyContext
+  Abs  :: ((ContextIsContained d c) ~ 'True)
+       => Sing (c :: Context ids) -> Expr ids d -> Expr ids EmptyContext
   -- ^ The constraint ensures that all free variables of the expression are bound
   Prim :: String -> Expr ids EmptyContext -- TODO add Prims to the context
   -- ^ A primitive function symbol
-  Let :: Bind ids s c -> Expr ids d -> Expr ids (ConcatContexts c (RemoveFromContext s d))
+  Let :: Bind ids s c -> Expr ids d -> Expr ids (c :<> (RemoveFromContext s d))
 -- Case a [Expr a] [CaseAlternative a] -- we definitely need case expressions
 
 -- -- TODO these are nice to have
@@ -146,17 +158,3 @@ moduleFoldl f a (ModuleCons b m) = f (moduleFoldl f a m) b
 moduleFold :: forall a ids (ss :: [ids]) . (Monoid a) => (forall (s :: ids) . a -> TopLevelBind ids s -> a) -> Module ids ss -> a
 moduleFold f m = moduleFoldl f mempty m
 
--- TODO move this to CodeGen
-isEmptyModule :: Module ids ss -> Bool
-isEmptyModule (ModuleCons (Bind _ _) _) = False
-isEmptyModule _                         = True
-
-moduleHead :: forall ids (ss :: [ids]) (s :: ids) . Module ids (s ': ss) -> TopLevelBind ids s
-moduleHead  (ModuleCons b _) = b
-
--- TODO this doesn't type check as is, even thought it worked inline
-getTopLevelNames :: (SingKind ids) => Module ids ss -> [Demote ids]
-getTopLevelNames = moduleFold f
-  where f ss b = ss <> [g b]
-        g :: forall ids (s :: ids) c . (SingKind ids) => Bind ids s c -> Demote ids
-        g (Bind s _) = fromSing s

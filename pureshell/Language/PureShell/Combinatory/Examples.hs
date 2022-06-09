@@ -1,9 +1,10 @@
-{-# LANGUAGE DataKinds        #-}
-{-# LANGUAGE GADTs            #-}
-{-# LANGUAGE KindSignatures   #-}
-{-# LANGUAGE PolyKinds        #-}
-{-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE TypeOperators    #-}
+{-# LANGUAGE DataKinds         #-}
+{-# LANGUAGE GADTs             #-}
+{-# LANGUAGE KindSignatures    #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE PolyKinds         #-}
+{-# LANGUAGE TypeApplications  #-}
+{-# LANGUAGE TypeOperators     #-}
 module Language.PureShell.Combinatory.Examples where
 
 import qualified Language.PureShell.Combinatory.IR as C

@@ -13,7 +13,7 @@
 * Augmentation of the combinatory IR
 ** Parametrize the Expr type with an arity
    This should help us evaluare unsaturated closures.
-   
+
 * Procedural IR optimizations
   These might need to operate on the bash grammar
 ** TODO Eliminate unused variable definitions, in particular unused bindings of positional parameters
@@ -32,3 +32,19 @@
 ** TODO Write integration test
 ** TODO Implement some command line switches.
    We probably need to follow some API to work with spago
+
+# This branch
+
+** DONE add CoreFn stage
+
+** DONE skeleton lowering
+
+*** DONE use bytestring symbols instead of Foo dummy
+
+** DONE driver: full compilation pipeline
+
+** DONE app CLI interface
+
+*** TODO REPL option
+
+*** TODO compilation option

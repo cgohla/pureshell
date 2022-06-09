@@ -19,6 +19,8 @@ import           Data.ByteString                        (ByteString)
 import qualified Data.ByteString.Char8                  as C8 (pack)
 import           Data.List.Extra                        (snoc)
 import           Data.Singletons
+import qualified Data.Text                              as T (pack)
+import qualified Data.Text.Encoding                     as T (encodeUtf8)
 import           Polysemy                               (Member, Sem, run)
 import           Polysemy.Writer                        (Writer, runWriter,
                                                          tell)
@@ -57,10 +59,10 @@ lowerExprLiteral :: ( Member (Writer TopLevelFunDefs) r
                  => C.Literal ids c -> Sem r (P.Sequence ByteString)
 lowerExprLiteral = \case
   C.StringLiteral s         -> literal s
-  C.NumericLiteral (Left n) -> literal $ show n
+  C.NumericLiteral (Left n) -> literal $ T.pack $ show n
   _                         -> error "not implemented"
   where
-    literal = C.expression . P.Literal . C8.pack
+    literal = C.expression . P.Literal . T.encodeUtf8
 
 lowerExprApp :: ( Member (Ids.LocalNames Ids.LocalBashVarName) r
                 , Member (Ids.LocalNames Ids.SimpleBashFunName) r

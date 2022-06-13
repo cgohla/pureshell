@@ -1,9 +1,13 @@
-{-# LANGUAGE DataKinds      #-}
-{-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE DataKinds         #-}
+{-# LANGUAGE FlexibleContexts  #-}
+{-# LANGUAGE KindSignatures    #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE PolyKinds         #-}
 module Language.PureShell.Combinatory.Shell where
 
 import qualified Language.PureShell.Combinatory.IR    as C
 import qualified Language.PureShell.Combinatory.Lower as C
+import qualified Language.PureShell.Identifiers       as Ids
 import qualified Language.PureShell.Procedural.Lower  as P
 
 import           Data.ByteString.Builder              (toLazyByteString)
@@ -15,7 +19,7 @@ import           System.IO.Temp                       (withSystemTempFile)
 import           System.Process                       (callCommand)
 
 -- | Start a shell with a module loaded
-shellWithModule :: C.Module (c :: [C.Foo]) -> IO ()
+shellWithModule :: Ids.IdsKind ids => C.Module ids (c :: [ids]) -> IO ()
 shellWithModule m = do
   let s = toLazyByteString $ Bash.script $ P.toBashStatement $ C.lowerModule m
   withSystemTempFile "pureshell-script-XXX" $ \t h -> do
@@ -23,6 +27,3 @@ shellWithModule m = do
     C8.hPut h s
     hClose h
     callCommand $ intercalate " " [ "bash", "--rcfile", t]
-
-
-

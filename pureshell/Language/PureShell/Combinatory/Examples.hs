@@ -1,30 +1,33 @@
-{-# LANGUAGE DataKinds      #-}
-{-# LANGUAGE GADTs          #-}
-{-# LANGUAGE KindSignatures #-}
-{-# LANGUAGE TypeOperators  #-}
+{-# LANGUAGE DataKinds        #-}
+{-# LANGUAGE GADTs            #-}
+{-# LANGUAGE KindSignatures   #-}
+{-# LANGUAGE PolyKinds        #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeOperators    #-}
 module Language.PureShell.Combinatory.Examples where
 
 import qualified Language.PureShell.Combinatory.IR as C
 
 import           Data.Singletons
+import           GHC.TypeLits
 
-exampleModule2 :: C.Module '[ 'C.Foo1]
-exampleModule2 = C.ModuleCons (C.Bind (sing @'C.Foo1) $ c)
+exampleModule2 :: C.Module Symbol '[ "foo"]
+exampleModule2 = C.ModuleCons (C.Bind (sing @"foo") $ c)
                  C.ModuleNil
   where
-    c = C.Abs (sing @(C.ConcatContexts (C.SingletonContext 'C.Bar1) (C.SingletonContext 'C.Bar3)))
+    c = C.Abs (sing @(C.ConcatContexts (C.SingletonContext "bar") (C.SingletonContext "baz")))
         (C.App (C.Prim "printf") ( C.GenExprListCons (C.Lit $ C.StringLiteral "%s%s") $
-                                   C.GenExprListCons (C.Var $ sing @'C.Bar1) $
-                                   C.GenExprListCons (C.Var $ sing @'C.Bar3) $
+                                   C.GenExprListCons (C.Var $ sing @"bar") $
+                                   C.GenExprListCons (C.Var $ sing @"baz") $
                                    C.GenExprListNil
                                  )
         )
 
-bindToFoo1 :: C.Expr C.EmptyContext -> C.Module '[ 'C.Foo1]
-bindToFoo1 c = C.ModuleCons (C.Bind (sing @'C.Foo1) $ c) C.ModuleNil
+bindToFoo :: C.Expr Symbol C.EmptyContext -> C.Module Symbol '[ "foo"]
+bindToFoo c = C.ModuleCons (C.Bind (sing @"foo") $ c) C.ModuleNil
 
 -- | This is just debugging crutch for now
-getHeadExpr :: C.Module ((a :: C.Foo) ': as) -> C.Expr C.EmptyContext
+getHeadExpr :: C.Module ids ((a :: ids) ': as) -> C.Expr ids C.EmptyContext
 getHeadExpr (C.ModuleCons (C.Bind _ e) _) = e
 -- surprise, C.lowerModule already does this
 
@@ -32,8 +35,8 @@ getHeadExpr (C.ModuleCons (C.Bind _ e) _) = e
 -- TODO make examples with deeper structure.
 
 -- Note that we can only bind closed expressions at the top level
-exampleLit :: C.Module '[ 'C.Foo1]
-exampleLit = bindToFoo1 $ C.Lit $ C.StringLiteral "hello"
+exampleLit :: C.Module Symbol '[ "foo"]
+exampleLit = bindToFoo $ C.Lit $ C.StringLiteral "hello"
 -- # good
 -- #!/bin/bash
 -- set -o errexit -o nounset -o pipefail
@@ -42,8 +45,8 @@ exampleLit = bindToFoo1 $ C.Lit $ C.StringLiteral "hello"
 --   echo hello
 -- }
 
-exampleApp :: C.Module '[ 'C.Foo1]
-exampleApp = bindToFoo1 $ C.App a $ C.genExprListSingle b
+exampleApp :: C.Module Symbol '[ "foo"]
+exampleApp = bindToFoo $ C.App a $ C.genExprListSingle b
   where
     a = C.Prim "hello"
     b = C.Lit $ C.StringLiteral "there"
@@ -58,11 +61,11 @@ exampleApp = bindToFoo1 $ C.App a $ C.genExprListSingle b
 --   "${r:-}" "${r1:-}" ### we may want to eliminate the indirection as an optional optimization
 -- }
 
-exampleAbs ::  C.Module '[ 'C.Foo1]
-exampleAbs = bindToFoo1 $ C.Abs p v
+exampleAbs ::  C.Module Symbol '[ "foo"]
+exampleAbs = bindToFoo $ C.Abs p v
   where
-    p = sing @(C.SingletonContext 'C.Bar1)
-    v = C.Var $ sing @'C.Bar1
+    p = sing @(C.SingletonContext "bar")
+    v = C.Var $ sing @"bar"
 -- # output is acceptable
 -- function Foo1 {
 --   if test $# -lt 1
@@ -74,8 +77,8 @@ exampleAbs = bindToFoo1 $ C.Abs p v
 --   echo "${Bar1:-}"
 -- }
 
-examplePrim ::  C.Module '[ 'C.Foo1]
-examplePrim = bindToFoo1 $ C.Prim "boom"
+examplePrim ::  C.Module Symbol '[ "foo"]
+examplePrim = bindToFoo $ C.Prim "boom"
 -- # good
 
 -- #!/bin/bash
@@ -85,11 +88,11 @@ examplePrim = bindToFoo1 $ C.Prim "boom"
 --   echo boom
 -- }
 
-exampleLet ::  C.Module '[ 'C.Foo1]
-exampleLet = bindToFoo1 $ C.Let b e
+exampleLet ::  C.Module Symbol '[ "foo"]
+exampleLet = bindToFoo $ C.Let b e
   where
-    b = C.Bind (sing @'C.Bar3) $ C.Lit $ C.StringLiteral "pow"
-    e = C.Var $ sing @'C.Bar3
+    b = C.Bind (sing @"baz") $ C.Lit $ C.StringLiteral "pow"
+    e = C.Var $ sing @"baz"
 -- # ouput is acceptable
 
 -- #!/bin/bash

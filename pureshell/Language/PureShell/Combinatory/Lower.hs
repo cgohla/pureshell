@@ -10,6 +10,7 @@
 module Language.PureShell.Combinatory.Lower where
 
 import qualified Language.PureShell.Combinatory.CodeGen as C
+import qualified Language.PureShell.Combinatory.Context as C
 import qualified Language.PureShell.Combinatory.IR      as C
 import qualified Language.PureShell.Identifiers         as Ids
 import qualified Language.PureShell.Procedural.IR       as P
@@ -18,7 +19,6 @@ import           Data.ByteString                        (ByteString)
 import qualified Data.ByteString.Char8                  as C8 (pack)
 import           Data.List.Extra                        (snoc)
 import           Data.Singletons
-import           Data.String                            (fromString)
 import           Polysemy                               (Member, Sem, run)
 import           Polysemy.Writer                        (Writer, runWriter,
                                                          tell)
@@ -26,32 +26,35 @@ import           Polysemy.Writer                        (Writer, runWriter,
 type TopLevelFunDefs = [P.FunDef ByteString]
 
 -- | Presumably the main entry point in this module
-lowerModule :: C.Module (ss :: [C.Foo]) -> P.Module ByteString
+lowerModule :: ( Ids.IdsKind ids)
+            => C.Module ids (ss :: [ids]) -> P.Module ByteString
 lowerModule = C.moduleFold f
   where
     f n b = n <> (P.Module $ lowerOneTopLevelDefn b)
 
-lowerOneTopLevelDefn :: forall s. C.TopLevelBind (s :: C.Foo) -> TopLevelFunDefs
+lowerOneTopLevelDefn :: forall ids (s :: ids). (Ids.IdsKind ids) => C.TopLevelBind ids s -> TopLevelFunDefs
 lowerOneTopLevelDefn = uncurry snoc . run . runWriter @TopLevelFunDefs . Ids.runLocalNames @Ids.SimpleBashFunName . lowerTopLevelBind
+-- NOTE the function names effect might need to be run at the top of
+-- the module, to guarantee function names are unique throughout it.
 
 lowerTopLevelBind :: ( Member (Ids.LocalNames Ids.SimpleBashFunName) r
-                     , Member (Writer TopLevelFunDefs) r )
-                  => C.TopLevelBind s -> Sem r (P.FunDef ByteString)
+                     , Member (Writer TopLevelFunDefs) r
+                     , Ids.IdsKind ids)
+                  => C.TopLevelBind ids s -> Sem r (P.FunDef ByteString)
 lowerTopLevelBind (C.Bind i e) = do
-  fn <- Ids.mkName @Ids.SimpleBashFunName $ fromString $ show $ fromSing i
+  fn <- Ids.mkName @Ids.SimpleBashFunName $ C.simpleBashFunName i
   let lowerExpr' = Ids.runLocalNames @Ids.LocalBashVarName . lowerExpr
   case e of
-    C.Abs c f -> P.FunDef fn ps <$> lowerExpr' f
+    C.Abs c f -> P.FunDef fn <$> ps <*> lowerExpr' f
       where
-        ps = fmap mkParamName $ C.unContext $ fromSing c
-        mkParamName :: C.Foo -> Ids.LocalBashVarName -- apparently the sig is required
-        mkParamName = Ids.LocalBashVarName . C8.pack . show
+        ps = Ids.runLocalNames @Ids.LocalBashVarName $ varNamesFromContext c
     _ -> P.FunDef fn [] <$> t
       where
         t = lowerExpr' e
 
-lowerExprLiteral :: (Member (Writer TopLevelFunDefs) r)
-             => C.Literal c -> Sem r (P.Sequence ByteString)
+lowerExprLiteral :: ( Member (Writer TopLevelFunDefs) r
+                    , Ids.IdsKind ids)
+                 => C.Literal ids c -> Sem r (P.Sequence ByteString)
 lowerExprLiteral = \case
   C.StringLiteral s         -> literal s
   C.NumericLiteral (Left n) -> literal $ show n
@@ -61,8 +64,9 @@ lowerExprLiteral = \case
 
 lowerExprApp :: ( Member (Ids.LocalNames Ids.LocalBashVarName) r
                 , Member (Ids.LocalNames Ids.SimpleBashFunName) r
-                , Member (Writer TopLevelFunDefs) r)
-             => C.Expr c -> C.ExprList d -> Sem r (P.Sequence ByteString)
+                , Member (Writer TopLevelFunDefs) r
+                , Ids.IdsKind ids)
+             => C.Expr ids c -> C.ExprList ids d -> Sem r (P.Sequence ByteString)
 lowerExprApp e es = do
   (v, a) <- exprEvalAssign e -- TODO this produces wrong results in the case of Prim
   (vs, as) <- C.genExprListFold chainExprEval es -- TODO if an es is a Var then we should use it directly
@@ -71,8 +75,9 @@ lowerExprApp e es = do
 
 exprEvalAssign :: ( Member (Ids.LocalNames Ids.LocalBashVarName) r
                   , Member (Ids.LocalNames Ids.SimpleBashFunName) r
-                  , Member (Writer TopLevelFunDefs) r)
-               => C.Expr c -> Sem r (Ids.LocalBashVarName, P.Assignment ByteString)
+                  , Member (Writer TopLevelFunDefs) r
+                  , Ids.IdsKind ids)
+               => C.Expr ids c -> Sem r (Ids.LocalBashVarName, P.Assignment ByteString)
 exprEvalAssign e = do
   s <- lowerExpr e
   v <- Ids.mkName @Ids.LocalBashVarName "r"
@@ -80,9 +85,10 @@ exprEvalAssign e = do
 
 chainExprEval :: ( Member (Ids.LocalNames Ids.LocalBashVarName) r
                  , Member (Ids.LocalNames Ids.SimpleBashFunName) r
-                 , Member (Writer TopLevelFunDefs) r)
+                 , Member (Writer TopLevelFunDefs) r
+                 , Ids.IdsKind ids)
               => Sem r ([Ids.LocalBashVarName], [P.Assignment ByteString])
-              -> C.Expr c -> Sem r ([Ids.LocalBashVarName], [P.Assignment ByteString])
+              -> C.Expr ids c -> Sem r ([Ids.LocalBashVarName], [P.Assignment ByteString])
 chainExprEval as e = do
   (vs, bs) <- as
   (v, a) <-  exprEvalAssign e
@@ -104,9 +110,18 @@ lowerExprPrim n = pure $ P.Sequence [] $ P.Literal n'
 -- and parametrize Combinatory and Procedural over it. (This is a
 -- separate issue from the above).
 
+varNamesFromContext :: ( Member (Ids.LocalNames Ids.LocalBashVarName) r
+                       , Ids.IdsKind ids)
+                    => Sing (c :: C.Context ids)
+                    -> Sem r [Ids.LocalBashVarName]
+varNamesFromContext c = do
+  let mkName' ns s = ns <> [Ids.mkName @Ids.LocalBashVarName $ C.localBashVarName s]
+  sequence $ C.contextFoldl mkName' [] c
+
 lowerExprAbs :: ( Member (Ids.LocalNames Ids.SimpleBashFunName) r
-                , Member (Writer TopLevelFunDefs) r)
-             => Sing (c :: C.Context) -> C.Expr d -> Sem r (P.Sequence ByteString)
+                , Member (Writer TopLevelFunDefs) r
+                , Ids.IdsKind ids)
+             => Sing (c :: C.Context ids) -> C.Expr ids d -> Sem r (P.Sequence ByteString)
              -- NOTE we are not actually enforcing the binding
              -- constraint here anymore. maybe there is an easy way to
              -- do that
@@ -115,9 +130,7 @@ lowerExprAbs c e = Ids.runLocalNames @Ids.LocalBashVarName $ do
   -- in business code. Use 'bracket' and 'resources' here.
   n <- Ids.mkName @Ids.SimpleBashFunName "lambda"
   -- TODO generalize, so we can include a better name
-  let mkName' = Ids.mkName @Ids.LocalBashVarName . Ids.LocalBashVarName . C8.pack . show
-  -- TODO this should guarantee we are starting a new local scope
-  vs <- traverse mkName' $ C.unContext $ fromSing c
+  vs <- varNamesFromContext c
   s <- lowerExpr e
   let f = P.FunDef n vs s
   tell @TopLevelFunDefs [f]
@@ -126,11 +139,12 @@ lowerExprAbs c e = Ids.runLocalNames @Ids.LocalBashVarName $ do
 
 lowerExprLet :: ( Member (Ids.LocalNames Ids.SimpleBashFunName) r
                 , Member (Ids.LocalNames Ids.LocalBashVarName) r
-                , Member (Writer TopLevelFunDefs) r)
-             => C.Bind s c -> C.Expr d -> Sem r (P.Sequence ByteString)
+                , Member (Writer TopLevelFunDefs) r
+                , Ids.IdsKind ids)
+             => C.Bind ids (s :: ids) c -> C.Expr ids d -> Sem r (P.Sequence ByteString)
 lowerExprLet (C.Bind i e) f = do
-  let mkName' = Ids.mkName @Ids.LocalBashVarName . Ids.LocalBashVarName . C8.pack . show
-  n <- mkName' $ fromSing i
+  let mkName' = Ids.mkName @Ids.LocalBashVarName . C.localBashVarName
+  n <- mkName' i
   b <- P.Assignment n <$> lowerExpr e
   P.Sequence s a <- lowerExpr f
   -- TODO this is not quite right. f needs to be able to capture
@@ -143,14 +157,14 @@ lowerExprLet (C.Bind i e) f = do
   C.sequence (b:s) a
   -- TODO implement a renaming effect
 
-
-lowerExprVar :: Sing (s :: C.Foo) -> Sem r (P.Sequence ByteString)
-lowerExprVar n  = C.sequence [] $ P.Variable $ Ids.LocalBashVarName $ C8.pack $ show $ fromSing n
+lowerExprVar :: (Ids.IdsKind ids) => Sing (s :: ids) -> Sem r (P.Sequence ByteString)
+lowerExprVar = C.sequence [] . P.Variable . C.localBashVarName
 
 lowerExpr :: ( Member (Ids.LocalNames Ids.LocalBashVarName) r
              , Member (Ids.LocalNames Ids.SimpleBashFunName) r
-             , Member (Writer TopLevelFunDefs) r)
-          => C.Expr c -> Sem r (P.Sequence ByteString)
+             , Member (Writer TopLevelFunDefs) r
+             , Ids.IdsKind ids)
+          => C.Expr ids c -> Sem r (P.Sequence ByteString)
 lowerExpr = \case
   C.Var n    -> lowerExprVar n
   C.Lit l    -> lowerExprLiteral l

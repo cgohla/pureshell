@@ -25,12 +25,12 @@ newtype ObjectName = ObjectName { getObjectName :: ByteString } deriving newtype
 
 newtype FieldName = FieldName { getFieldName :: ByteString } deriving newtype (Show, Eq, Ord)
 
-data Module l = Module [FunDef l] deriving (Show, Eq, Ord)
+data Module lit = Module [FunDef lit] deriving (Show, Eq, Ord)
 
-instance Semigroup (Module l) where
+instance Semigroup (Module lit) where
   (Module m) <> (Module n) = Module (n <> m)
 
-instance Monoid (Module l) where
+instance Monoid (Module lit) where
   mempty = Module []
 
 data FunClosure = ClosureFromName Ids.SimpleBashFunName
@@ -43,19 +43,19 @@ data ObjectCommand = EmptyObject ObjectName
                    | ProjectField Ids.LocalBashVarName ObjectName FieldName
                  deriving (Show, Eq, Ord)
 
-data Expression l = Literal l
+data Expression lit = Literal lit
                    | Application FunClosure [Ids.LocalBashVarName]
                    -- TODO we may want to add  another indirection layer here to allowliteral params
                    | Variable Ids.LocalBashVarName -- NOTE this seems clunky
                    deriving (Show, Eq, Ord)
 
-data Sequence l = Sequence [Assignment l] (Expression l) deriving (Show, Eq, Ord)
+data Sequence lit = Sequence [Assignment lit] (Expression lit) deriving (Show, Eq, Ord)
 
-data CaseBranch l = CaseBranch l (Sequence l) deriving (Show, Eq, Ord)
+data CaseBranch lit = CaseBranch lit (Sequence lit) deriving (Show, Eq, Ord)
 
-data Assignment l = Assignment Ids.LocalBashVarName (Sequence l)
+data Assignment lit = Assignment Ids.LocalBashVarName (Sequence lit)
                   | ObjectCommand ObjectCommand
-                  | Case Ids.LocalBashVarName Ids.LocalBashVarName [CaseBranch l]
+                  | Case Ids.LocalBashVarName Ids.LocalBashVarName [CaseBranch lit]
                   deriving (Show, Eq, Ord)
 
-data FunDef l = FunDef Ids.SimpleBashFunName [Ids.LocalBashVarName] (Sequence l) deriving (Show, Eq, Ord)
+data FunDef lit = FunDef Ids.SimpleBashFunName [Ids.LocalBashVarName] (Sequence lit) deriving (Show, Eq, Ord)

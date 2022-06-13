@@ -18,7 +18,10 @@ import           Data.Bifunctor        (second)
 import           Data.ByteString       (ByteString)
 import qualified Data.ByteString.Char8 as C8 (pack)
 import qualified Data.Map              as Map (Map, empty, insertLookupWithKey)
+import           Data.Singletons
 import           Data.String           (IsString, fromString)
+import           Data.Text.Encoding    (encodeUtf8)
+import           GHC.TypeLits
 import           Polysemy              (InterpreterFor, Member, Sem, makeSem,
                                         reinterpret)
 import           Polysemy.State        (State, evalState, get, put)
@@ -30,6 +33,9 @@ makeSem ''LocalNames
 
 class (Show i, Eq i, Ord i) => IsIdentifier i where
   reify :: i -> Maybe Integer -> i
+
+class (SingKind ids) => IdsKind ids where
+  toBS :: Sing (s :: ids) -> ByteString
 
 newtype LocalBashVarName = LocalBashVarName { getVarName :: ByteString } deriving newtype (Show, Eq, Ord)
 
@@ -46,6 +52,9 @@ instance IsString LocalBashVarName where
 
 instance IsString SimpleBashFunName where
   fromString = SimpleBashFunName . fromString
+
+instance IdsKind Symbol where
+  toBS = encodeUtf8 . fromSing
 
 runLocalNames :: forall i r. (IsIdentifier i) => InterpreterFor (LocalNames i) r
 runLocalNames = evalState (LocalNamesMap $ Map.empty @i) . reinterpret reinterpretLocalNames

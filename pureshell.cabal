@@ -20,7 +20,7 @@ maintainer:         b.gohla@gmx.de
 -- copyright:
 -- category:
 extra-source-files: CHANGELOG.md
-                    
+
 executable examples
     main-is:          Main.hs
 
@@ -77,8 +77,10 @@ library
                      , temporary
                      , text
                      , utf8-string
-        exposed-modules: Language.PureShell
-                       , App.Driver
+        exposed-modules:
+                       -- Language.PureShell
+                       -- ,
+                         App.Driver
                        , Language.Bash.Test
                        , Language.PureShell.Combinatory.CodeGen
                        , Language.PureShell.Combinatory.Examples
@@ -86,7 +88,7 @@ library
                        , Language.PureShell.Combinatory.Lower
                        , Language.PureShell.Combinatory.Shell
                        , Language.PureShell.Identifiers
-                       , Language.PureShell.Main
+--                     , Language.PureShell.Main
                        , Language.PureShell.Procedural.CodeGen
                        , Language.PureShell.Procedural.IR
                        , Language.PureShell.Procedural.Lower

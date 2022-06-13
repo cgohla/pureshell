@@ -86,7 +86,7 @@ chainExprEval :: ( Member (Ids.LocalNames Ids.LocalBashVarName) r
 chainExprEval as e = do
   (vs, bs) <- as
   (v, a) <-  exprEvalAssign e
-  pure $ (vs <> [v], bs <> [a])
+  pure $ ([v] <> vs, [a] <> bs)
 
 -- lowerExprPrim :: String -> Sem r (P.Sequence ByteString)
 -- lowerExprPrim n = pure $ P.Sequence [] $ P.Application (P.ClosureFromName $ Ids.SimpleBashFunName n') []

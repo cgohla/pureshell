@@ -107,7 +107,7 @@ data Expr (c :: Context) where -- TODO add kind sigs
   -- this should closely match corefn literals
   App  :: Expr c -> ExprList d -> Expr (ConcatContexts c d)
   -- ^ Application of multiple terms
-  Abs  :: ((ContextIsContained d c) ~ 'True) => Sing c -> Expr d -> Expr EmptyContext
+  Abs  :: ((ContextIsContained d c) ~ 'True) => Sing (c :: Context) -> Expr d -> Expr EmptyContext
   -- ^ The constraint ensures that all free variables of the expression are bound
   Prim :: String -> Expr EmptyContext -- TODO add Prims to the context
   -- ^ A primitive function symbol

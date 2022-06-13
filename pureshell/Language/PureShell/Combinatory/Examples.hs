@@ -13,13 +13,10 @@ exampleModule2 = C.ModuleCons (C.Bind (sing @'C.Foo1) $ c)
                  C.ModuleNil
   where
     c = C.Abs (sing @(C.ConcatContexts (C.SingletonContext 'C.Bar1) (C.SingletonContext 'C.Bar3)))
-        (C.App (C.Prim "printf") ( C.GenExprListCons (C.Var $ sing @'C.Bar1) $
+        (C.App (C.Prim "printf") ( C.GenExprListCons (C.Lit $ C.StringLiteral "%s%s") $
+                                   C.GenExprListCons (C.Var $ sing @'C.Bar1) $
                                    C.GenExprListCons (C.Var $ sing @'C.Bar3) $
-                                   C.GenExprListCons (C.Lit $ C.StringLiteral "%s%s") $
                                    C.GenExprListNil
-                                   -- ^ TODO Big problem here, the
-                                   -- list is actually traversed in
-                                   -- reverse
                                  )
         )
 

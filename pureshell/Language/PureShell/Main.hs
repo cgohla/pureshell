@@ -29,3 +29,4 @@ getModule p = do
   r <- (maybe jsonError pure) $ decode @Value b
   let getModule' = either error id . parseEither moduleFromJSON
   pure $ getModule' r
+

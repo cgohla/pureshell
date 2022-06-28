@@ -35,6 +35,7 @@
 
 # This branch
 ** TODO Add PureScript examples using lambdas
+*** TODO add make targets for compiling examples
 ** TODO Implement lowering
 
 # Later

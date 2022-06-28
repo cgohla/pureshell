@@ -1,18 +1,20 @@
-{-# LANGUAGE DataKinds                #-}
-{-# LANGUAGE GADTs                    #-}
-{-# LANGUAGE ImpredicativeTypes       #-}
-{-# LANGUAGE KindSignatures           #-}
-{-# LANGUAGE LambdaCase               #-}
-{-# LANGUAGE MultiParamTypeClasses    #-}
-{-# LANGUAGE PolyKinds                #-}
-{-# LANGUAGE RankNTypes               #-}
-{-# LANGUAGE ScopedTypeVariables      #-}
-{-# LANGUAGE StandaloneKindSignatures #-}
-{-# LANGUAGE TemplateHaskell          #-}
-{-# LANGUAGE TypeApplications         #-}
-{-# LANGUAGE TypeFamilies             #-}
-{-# LANGUAGE TypeOperators            #-}
-{-# LANGUAGE UndecidableInstances     #-}
+{-# LANGUAGE DataKinds                  #-}
+{-# LANGUAGE DerivingStrategies         #-}
+{-# LANGUAGE GADTs                      #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE ImpredicativeTypes         #-}
+{-# LANGUAGE KindSignatures             #-}
+{-# LANGUAGE LambdaCase                 #-}
+{-# LANGUAGE MultiParamTypeClasses      #-}
+{-# LANGUAGE PolyKinds                  #-}
+{-# LANGUAGE RankNTypes                 #-}
+{-# LANGUAGE ScopedTypeVariables        #-}
+{-# LANGUAGE StandaloneKindSignatures   #-}
+{-# LANGUAGE TemplateHaskell            #-}
+{-# LANGUAGE TypeApplications           #-}
+{-# LANGUAGE TypeFamilies               #-}
+{-# LANGUAGE TypeOperators              #-}
+{-# LANGUAGE UndecidableInstances       #-}
 module Language.PureShell.Combinatory.IR ( Expr(..)
                                          , Literal(..)
                                          , Bind(..)
@@ -28,16 +30,22 @@ module Language.PureShell.Combinatory.IR ( Expr(..)
                                          , ExprList
                                          , TopLevelBind
                                          , moduleFold
+                                         , singletonContext
+                                         , (:<>)
                                          ) where
 
 import           Data.Singletons
 import           Data.Singletons.Prelude.Eq
 import           Data.Singletons.Prelude.List
-import           Data.Singletons.TH           (genSingletons)
-import           Data.Text                    (Text)
-import           Data.Type.Bool               (If)
+import           Data.Singletons.Prelude.Monoid
+import           Data.Singletons.Prelude.Semigroup
+import           Data.Singletons.TH                (genSingletons)
+import           Data.Text                         (Text)
+import           Data.Type.Bool                    (If)
 
-newtype Context ids = Context { unContext :: [ids] } deriving (Eq, Show, Ord)
+newtype Context ids = Context { unContext :: [ids] }
+  deriving (Eq, Show, Ord)
+--  deriving newtype (SSemigroup, SMonoid) -- TODO figure out the type coersion problem
 
 instance PEq (Context ids) where
 
@@ -48,7 +56,8 @@ type EmptyContext = 'Context '[]
 emptyContext :: Context a
 emptyContext = Context []
 
-type SingletonContext s = 'Context '[s] -- TODO figure out how to get this using function promotion
+type SingletonContext s = 'Context '[s]
+-- TODO figure out how to get this using function promotion
 
 -- TODO we also need a way to actually construct singleton values of these
 singletonContext :: ids -> Context ids
@@ -115,7 +124,7 @@ data Expr ids (c :: Context ids) where -- TODO add kind sigs
   -- this should closely match corefn literals
   App  :: Expr ids c -> ExprList ids d -> Expr ids (c :<> d)
   -- ^ Application of multiple terms
-  Abs  :: ((ContextIsContained d c) ~ 'True)
+  Abs  :: (d `ContextIsContained` c ~ 'True)
        => Sing (c :: Context ids) -> Expr ids d -> Expr ids EmptyContext
   -- ^ The constraint ensures that all free variables of the expression are bound
   Prim :: String -> Expr ids EmptyContext -- TODO add Prims to the context

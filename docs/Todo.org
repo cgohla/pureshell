@@ -34,16 +34,10 @@
    We probably need to follow some API to work with spago
 
 # This branch
+** TODO Add PureScript examples using lambdas
+** TODO Implement lowering
 
-** DONE add CoreFn stage
-
-** DONE skeleton lowering
-
-*** DONE use bytestring symbols instead of Foo dummy
-
-** DONE driver: full compilation pipeline
-
-** DONE app CLI interface
+# Later
 
 *** TODO REPL option
 

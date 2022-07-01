@@ -1,5 +1,6 @@
 {-# LANGUAGE DataKinds                  #-}
 {-# LANGUAGE DerivingStrategies         #-}
+{-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE GADTs                      #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE ImpredicativeTypes         #-}
@@ -7,17 +8,20 @@
 {-# LANGUAGE PolyKinds                  #-}
 {-# LANGUAGE RankNTypes                 #-}
 {-# LANGUAGE TypeApplications           #-}
-module Language.PureShell.CoreFn.Lower ( lowerModule
-                                       , lowerModuleThen
-                                       ) where
+{-# LANGUAGE TypeOperators              #-}
+module Language.PureShell.CoreFn.Lower -- ( lowerModule
+                                       -- , lowerModuleThen
+                                       -- )
+where
 
 import qualified Language.PureShell.Combinatory.IR as C
 import qualified Language.PureShell.CoreFn.IR      as F
 import qualified Language.PureShell.Identifiers    as Ids
 
 
-import           Data.Singletons                   (Sing, SomeSing (..), sing,
-                                                    toSing)
+import           Data.Singletons                   (Demote, Sing, SingKind,
+                                                    SomeSing (..), fromSing,
+                                                    sing, toSing)
 import           Data.Singletons.Prelude.List      (SList (..))
 import           Data.Singletons.Prelude.Monoid    (sMappend)
 import qualified Data.Text                         as T (pack)
@@ -56,7 +60,7 @@ lowerBind _                = error "recursive binds are not yet supported"
 lowerExpr :: F.Expr a -> SomeExpr Symbol
 lowerExpr = \case
   F.Literal _ l -> lowerLiteral l
-  F.Abs _ i e   -> lowerAbs i e
+  F.Abs a i e   -> lowerAbs a i e
 --  F.App _ e e'  -> error "F.App is not supported yet"
   _             -> error "this expression is not yet handled"
 
@@ -76,27 +80,44 @@ appendSContexts (C.SContext c) (C.SContext c') = C.SContext $ c `sMappend` c'
 
 contextToVars :: Sing (c :: C.Context ids) -> C.ExprList ids c
 contextToVars (C.SContext SNil)         = C.GenExprListNil
-contextToVars (C.SContext (SCons v vs)) = undefined
+contextToVars (C.SContext (SCons v vs)) = error "TODO contextToVars"
 
-lowerAbs :: F.Ident -> F.Expr ann -> SomeExpr Symbol
-lowerAbs i e@(F.Abs _ _ _) = undefined -- TODO this should probably a clause in a \case
-lowerAbs i e = case vs of
-                 SomeSing vs' -> case lowerExpr e of
-                   MkSomeExpr g fvg -> MkSomeExpr e' sing -- TODO compute the context (???)
-                     where
-                       e' = C.App (C.Abs (fvg' `appendSContexts` vs') g) $ contextToVars fvg' -- TODO leave off the App when fvg' is empty
-                       -- IDEA maybe that shoud be an invariant on Combinatory, that App and Abs have to be over at least one variable
-                       fvg' = undefined -- TODO this needs to have only the symbols that are not bound, i.e., fvg minus vs'
+removeOne :: (SingKind ids, Eq (Demote ids))
+          => C.SContext (c :: C.Context ids)
+          -> Sing (c' :: ids)
+          -> SomeSing (C.Context ids)
+removeOne c@(C.SContext SNil) _ = SomeSing c
+removeOne (C.SContext (SCons s ss)) s' | fromSing s == fromSing s' = removeOne (C.SContext ss) s'
+                                       | otherwise = case removeOne (C.SContext ss) s' of
+                                                       SomeSing (C.SContext t) -> SomeSing $ C.SContext $ SCons s t
+
+remove :: (SingKind ids, Eq (Demote ids))
+       => C.SContext (c :: C.Context ids)
+       -> C.SContext (c' :: C.Context ids)
+       -> SomeSing (C.Context ids)
+remove c@(C.SContext SNil) _ = SomeSing c
+remove c@(C.SContext (SCons _ _)) (C.SContext (SCons s' ss')) = case removeOne c s' of
+                                                                  SomeSing d -> remove d $ C.SContext ss'
+remove c (C.SContext SNil) = SomeSing c
+
+vsToContext :: [F.Ident] -> SomeSing (C.Context Symbol)
+vsToContext [] = SomeSing $ C.SContext SNil
+vsToContext (w:ws) = case lowerIdent w of
+                       SomeSing w' -> case vsToContext ws of
+                         SomeSing (C.SContext c) -> SomeSing $ C.SContext $ SCons w' c
+
+lowerAbs :: ann -> F.Ident -> F.Expr ann -> SomeExpr Symbol
+lowerAbs a i e = go [] $ F.Abs a i e
   where
-    vs = case lowerIdent i of
-      SomeSing i' -> SomeSing $ C.SContext $ SCons i' SNil
-
-  -- let's try doing it one var at a time first
-
-  -- we need a function that can recurse if e is another abs, otherwise lower the e
-  -- we also need to take care to collect all the free variables in e
-
-  -- error "F.Abs is not supported yet"
+    go vs (F.Abs _ i' e') = go (vs <> [i']) e'
+    go vs e = case vsToContext vs of
+                     SomeSing vs' -> case lowerExpr e of
+                       MkSomeExpr g fvg -> case fvg `remove` vs' of
+                         SomeSing fvg' -> MkSomeExpr (C.App (C.Abs (fvg' `appendSContexts` vs') g) $ contextToVars fvg') sing
+                         -- TODO here we apparently need to somehow
+                         -- provide evidence that the closure
+                         -- constraint on the Abs is actually
+                         -- satisfied
 
 type SomeId = SomeSing Symbol
 

@@ -5,3 +5,9 @@ source-repository-package
     location: https://github.com/cgohla/bash
     tag: 77e0c884524606cd9beaff1f4bfa84b97d7657a4
     subdir: hs
+
+source-repository-package
+    type: git
+    location: /home/bgohla/src/scratch/singletons-lists-props
+    tag: 607225f736399f7b3dfc05815447d2dcab159671
+

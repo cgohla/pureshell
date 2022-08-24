@@ -31,7 +31,7 @@ executable examples
   -- other-extensions:
   build-depends:
     , aeson
-    , base            ^>=4.16.3.0
+    , base        ^>=4.16.3.0
     , bash
     , bytestring
     , natural
@@ -52,7 +52,7 @@ executable pureshell
   -- other-extensions:
   build-depends:
     , aeson
-    , base            ^>=4.16.3.0
+    , base        ^>=4.16.3.0
     , bash
     , bytestring
     , purescript
@@ -67,7 +67,7 @@ library
   default-language: Haskell2010
   build-depends:
     , aeson
-    , base                  ^>=4.16.3.0
+    , base                    ^>=4.16.3.0
     , bash
     , binary
     , bytestring
@@ -83,8 +83,9 @@ library
     , purescript
     , shell-escape
     , singletons
-    , singletons-th
     , singletons-base
+    , singletons-lists-props
+    , singletons-th
     , template-haskell
     , temporary
     , text
@@ -102,9 +103,11 @@ library
     Language.PureShell.Combinatory.IR
     Language.PureShell.Combinatory.Lower
     Language.PureShell.Combinatory.Shell
+    Language.PureShell.ContextCoreFn.IR
     Language.PureShell.CoreFn.CodeGen
     Language.PureShell.CoreFn.IR
     Language.PureShell.CoreFn.Lower
+    Language.PureShell.CoreFn.LowerToContextCoreFn
     Language.PureShell.Identifiers
     Language.PureShell.Main
     Language.PureShell.Procedural.CodeGen

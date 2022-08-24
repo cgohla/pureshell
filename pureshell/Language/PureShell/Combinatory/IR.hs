@@ -30,12 +30,12 @@ module Language.PureShell.Combinatory.IR ( Expr(..)
                                          , moduleFold
                                          ) where
 
+import           Data.Eq.Singletons
+import           Data.List.Singletons
 import           Data.Singletons
-import           Data.Singletons.Prelude.Eq
-import           Data.Singletons.Prelude.List
-import           Data.Singletons.TH           (genSingletons)
-import           Data.Text                    (Text)
-import           Data.Type.Bool               (If)
+import           Data.Singletons.TH   (genSingletons)
+import           Data.Text            (Text)
+import           Data.Type.Bool       (If)
 
 newtype Context ids = Context { unContext :: [ids] } deriving (Eq, Show, Ord)
 

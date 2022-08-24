@@ -16,9 +16,9 @@ import qualified Language.PureShell.CoreFn.IR      as F
 import qualified Language.PureShell.Identifiers    as Ids
 
 
+import           Data.List.Singletons              (SList (..))
 import           Data.Singletons                   (Sing, SomeSing (..), sing,
                                                     toSing)
-import           Data.Singletons.Prelude.List      (SList (..))
 import qualified Data.Text                         as T (pack)
 import           GHC.TypeLits                      (Symbol)
 
@@ -31,7 +31,7 @@ lowerModuleThen :: F.Module a
                 -> (forall ids ss. (Ids.IdsKind ids) => C.Module ids ss -> b)
                 -> b
 lowerModuleThen m f = case lowerModule m of
-  Nothing -> error "the module could not be compiled"
+  Nothing                -> error "the module could not be compiled"
   Just (MkSomeModule m') -> f m'
 
 lowerModuleDecls :: [F.Bind a] -> Maybe (SomeModule Symbol)

@@ -14,17 +14,17 @@
 {-# LANGUAGE TypeOperators              #-}
 module Language.PureShell.Identifiers where
 
-import           Data.Bifunctor        (second)
-import           Data.ByteString       (ByteString)
-import qualified Data.ByteString.Char8 as C8 (pack)
-import qualified Data.Map              as Map (Map, empty, insertLookupWithKey)
-import           Data.Singletons
-import           Data.String           (IsString, fromString)
-import           Data.Text.Encoding    (encodeUtf8)
-import           GHC.TypeLits
-import           Polysemy              (InterpreterFor, Member, Sem, makeSem,
-                                        reinterpret)
-import           Polysemy.State        (State, evalState, get, put)
+import           Data.Bifunctor         (second)
+import           Data.ByteString        (ByteString)
+import qualified Data.ByteString.Char8  as C8 (pack)
+import qualified Data.Map               as Map (Map, empty, insertLookupWithKey)
+import           Data.Singletons        (Sing, SingKind, fromSing)
+import           Data.String            (IsString, fromString)
+import           Data.Text.Encoding     (encodeUtf8)
+import           GHC.TypeLits.Singletons (Symbol)
+import           Polysemy               (InterpreterFor, Member, Sem, makeSem,
+                                         reinterpret)
+import           Polysemy.State         (State, evalState, get, put)
 
 data LocalNames i m a where
   MkName :: i -> LocalNames i m i

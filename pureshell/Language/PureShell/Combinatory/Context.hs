@@ -12,7 +12,7 @@ module Language.PureShell.Combinatory.Context where
 import           Language.PureShell.Combinatory.IR
 
 import           Data.Singletons
-import           Data.Singletons.Prelude.List
+import           Data.List.Singletons
 
 -- | Consume a context
 

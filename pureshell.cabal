@@ -113,5 +113,6 @@ library
     Language.PureShell.Procedural.CodeGen
     Language.PureShell.Procedural.IR
     Language.PureShell.Procedural.Lower
+    Language.PureShell.Split.IR
 
   ghc-options:      -Wall

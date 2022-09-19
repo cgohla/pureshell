@@ -5,7 +5,7 @@
 {-# LANGUAGE PolyKinds          #-}
 {-# LANGUAGE TypeFamilies       #-}
 {-# LANGUAGE TypeOperators      #-}
-module Language.PureShell.Split.IR where
+module Language.PureShell.Context.Split.IR where
 
 import           Data.Kind                           (Type)
 import           Data.List.Singletons                (-- Lookup, SList (..),

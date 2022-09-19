@@ -23,32 +23,13 @@
 {-# LANGUAGE TypeFamilies             #-}
 {-# LANGUAGE TypeOperators            #-}
 {-# LANGUAGE UndecidableInstances     #-}
-module Language.PureShell.ContextCoreFn.IR where
+module Language.PureShell.Context.CoreFn.IR where
 
 import           Data.Bool.Singletons
-import           Data.Eq.Singletons
-import           Data.Functor.Singletons
-import           Data.Functor.Singletons           (FmapSym0, sFmap)
 import           Data.Kind                         (Type)
 import           Data.List.Props                   (IsElem (..), decideIsElem)
 import           Data.List.Singletons
-import           Data.Maybe.Singletons             (JustSym0, NothingSym0,
-                                                    SMaybe (..))
-import           Data.Ord.Singletons
-import           Data.Singletons                   (Sing, SingI, sing)
-import           Data.Singletons.Base.TH           (FromInteger, FromString)
-import           Data.Singletons.Decide            ((:~:) (..))
-import           Data.Singletons.TH                (genSingletons, promote,
-                                                    singDecideInstances,
-                                                    singletons)
-import           Data.Singletons.TH.Options        (defaultOptions,
-                                                    defunctionalizedName,
-                                                    promotedDataTypeOrConName,
-                                                    withOptions)
-import           Data.Text                         (Text)
-import           GHC.TypeLits                      (Nat)
-import           GHC.TypeLits.Singletons           (Symbol)
-import           Language.Haskell.TH               (Name)
+import           Data.Singletons                   (sing)
 import           Language.PureScript.AST.SourcePos (SourceSpan)
 import           Language.PureScript.Comments      (Comment)
 import qualified Language.PureScript.Names         as F (ProperName,
@@ -57,105 +38,9 @@ import qualified Language.PureScript.Names         as F (ProperName,
 import           Language.PureScript.PSString      (PSString)
 import           Text.Show.Singletons              ()
 
+import           Language.PureShell.Context.Ident
+
 -- | Like CoreFn, but with context annotations
-
-data InternalIdentData
-  = RuntimeLazyFactory
-  | Lazy !Text
---   deriving (Show, Eq, Ord)
-
--- | Unfortunately we can not use Language.PureScript.Names.ModuleName
--- here because in order to generate SDecide instances, we must be
--- able to derive our own Eq instance in the TH splice below.
-newtype ModuleName = ModuleName Text
--- | We need this custom promoted version ModuleName. The `P` prefixed
--- names are needed unfortunately to make the promotion hack below
--- work.
-newtype PModuleName = PModuleName Symbol
---   deriving (Ord, Eq, Show)
-
-data Imported a = Imported ModuleName a
-data PImported a = PImported PModuleName a
-
-data Qualified a = Qualified (Maybe ModuleName) a
---  deriving (Ord, Eq, Show)
-data PQualified a = PQualified (Maybe PModuleName) a
---  deriving (Ord, Eq, Show)
-
-type PQIdent = PQualified PIdent
-
--- | We can't reuse the def'n from Language.PureScript.Names because
--- that uses Integers instead of Nats.
-data Ident
-   = Ident Text
-   | GenIdent (Maybe Text) Nat
-   | UnusedIdent
---   deriving (Ord, Eq, Show)
-
-data PIdent
-   = PIdent Symbol
-   | PGenIdent (Maybe Symbol) Nat
-   | PUnusedIdent
---   deriving (Ord, Eq, Show)
-
-$(let
-     customPromote :: Name -> Name
-     customPromote n
-       | n == ''Imported = ''PImported
-       | n == 'Imported = 'PImported
-       | n == ''Ident  = ''PIdent
-       | n == 'Ident = 'PIdent
-       | n == 'GenIdent = 'PGenIdent
-       | n == 'UnusedIdent = 'PUnusedIdent
-       | n == ''Text     = ''Symbol
-       | n == ''ModuleName = ''PModuleName
-       | n == 'ModuleName = 'PModuleName
-       | n == ''Qualified = ''PQualified
-       | n == 'Qualified = 'PQualified
-       | otherwise       = promotedDataTypeOrConName defaultOptions n
-
-     customDefun :: Name -> Int -> Name
-     customDefun n sat = defunctionalizedName defaultOptions (customPromote n) sat
- in
-    withOptions defaultOptions{ promotedDataTypeOrConName = customPromote
-                              , defunctionalizedName      = customDefun
-                              } $
-    do
-      let ts = [''Ident, ''ModuleName, ''Qualified, ''Imported]
-      a <- genSingletons ts
-      c <- singletons [d|
-                        local :: Ident -> Qualified Ident
-                        local = Qualified Nothing
-                        locals :: [Ident] -> [Qualified Ident]
-                        locals = fmap local
-                        import_ :: Imported a -> Qualified a
-                        import_ (Imported m i) = Qualified (Just m) i
-                        imports :: [Imported a] -> [Qualified a]
-                        imports = fmap import_
-
-                        deriving instance Eq Ident
-                        deriving instance Eq ModuleName
-                        deriving instance (Eq a) => Eq (Qualified a)
-                        deriving instance (Eq a) => Eq (Imported a)
-
-                        -- TODO awaiting solution of
-                        -- https://github.com/goldfirere/singletons/issues/538
-                        -- deriving instance Show Ident
-                        -- deriving instance Show ModuleName
-                        -- deriving instance (Show a) => Show (Qualified a)
-                        -- deriving instance (Show a) => Show (Imported a)
-
-                        deriving instance Ord Ident
-                        deriving instance Ord ModuleName
-                        deriving instance (Ord a) => Ord (Qualified a)
-                        deriving instance (Ord a) => Ord (Imported a)
-
-                        deriving instance Functor Qualified
-                        deriving instance Functor Imported
-
-                        |]
-      return $ a <> c
- )
 
 data Literal a c
    = NumericLiteral (Either Integer Double)
@@ -212,7 +97,7 @@ data LitBinderObject a (l :: [PIdent]) where
 
 -- | NOTE we can't reuse the Literal type from CoreFn because we need
 -- to accumulate names.
-data LitBinder a (l :: [PIdent]) where
+data LitBinder a l where
    NumericLitBinder :: (Either Integer Double) -> LitBinder a '[]
    StringLitBinder  :: PSString -> LitBinder a '[]
    CharLitBinder    :: Char -> LitBinder a '[]
@@ -223,7 +108,7 @@ data LitBinder a (l :: [PIdent]) where
 type TypeName = (F.Qualified (F.ProperName 'F.TypeName))
 type ConstructorName = (F.Qualified (F.ProperName 'F.ConstructorName))
 
-data Binder a (l :: [PIdent]) where
+data Binder a l where
  NullBinder        :: a -> Binder a '[]
  LiteralBinder     :: a -> LitBinder a l -> Binder a l
  -- ^ TODO It's not clear this is correct
@@ -231,11 +116,11 @@ data Binder a (l :: [PIdent]) where
  ConstructorBinder :: a -> TypeName -> ConstructorName -> BinderList a l -> Binder a l
  NamedBinder       :: a -> Sing (i :: PIdent) -> Binder a l -> Binder a (i ': l)
 
-data BinderList a (l :: [PIdent]) where
+data BinderList a l where
   BinderListNil :: BinderList a '[]
   BinderListCons :: Binder a l -> BinderList a l' -> BinderList a (l ++ l')
 
-data CaseAlternative a c = forall (l :: [PIdent]). CaseAlternative
+data CaseAlternative a c = forall l. CaseAlternative
    { caseAlternativeBinders :: BinderList a l
    , caseAlternativeResult  :: Either [(Guard a (Locals l ++ c), Expr a (Locals l ++ c))] (Expr a (Locals l ++ c))
    }

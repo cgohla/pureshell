@@ -103,7 +103,9 @@ library
     Language.PureShell.Combinatory.IR
     Language.PureShell.Combinatory.Lower
     Language.PureShell.Combinatory.Shell
-    Language.PureShell.ContextCoreFn.IR
+    Language.PureShell.Context.CoreFn.IR
+    Language.PureShell.Context.Ident
+    Language.PureShell.Context.Split.IR
     Language.PureShell.CoreFn.CodeGen
     Language.PureShell.CoreFn.IR
     Language.PureShell.CoreFn.Lower
@@ -113,6 +115,5 @@ library
     Language.PureShell.Procedural.CodeGen
     Language.PureShell.Procedural.IR
     Language.PureShell.Procedural.Lower
-    Language.PureShell.Split.IR
 
   ghc-options:      -Wall

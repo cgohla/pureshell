@@ -12,22 +12,23 @@
 {-# LANGUAGE TypeOperators       #-}
 module Language.PureShell.CoreFn.LowerToContextCoreFn (lowerModule) where
 
-import           Control.Applicative.Singletons      (sPure)
-import           Data.Bifunctor                      (bimap, second)
-import           Data.List                           (nub)
-import           Data.List.Singletons                (SList (..), type (++),
-                                                      (%++))
-import           Data.Map.Strict                     as M (fromList, keys,
-                                                           lookup, type Map)
-import           Data.Maybe                          (fromMaybe)
-import           Data.Singletons                     (Sing, fromSing,
-                                                      withSomeSing)
-import           Data.Singletons.Decide              (type (:~:) (..))
-import           Data.List.Props                     (decideIsElem,
-                                                      listRightUnit)
+import           Control.Applicative.Singletons       (sPure)
+import           Data.Bifunctor                       (bimap, second)
+import           Data.List                            (nub)
+import           Data.List.Props                      (decideIsElem,
+                                                       listRightUnit)
+import           Data.List.Singletons                 (SList (..), type (++),
+                                                       (%++))
+import           Data.Map.Strict                      as M (fromList, keys,
+                                                            lookup, type Map)
+import           Data.Maybe                           (fromMaybe)
+import           Data.Singletons                      (Sing, fromSing,
+                                                       withSomeSing)
+import           Data.Singletons.Decide               (type (:~:) (..))
 
-import qualified Language.PureShell.ContextCoreFn.IR as X
-import qualified Language.PureShell.CoreFn.IR        as F
+import qualified Language.PureShell.Context.CoreFn.IR as X
+import qualified Language.PureShell.Context.Ident     as X
+import qualified Language.PureShell.CoreFn.IR         as F
 
 lowerModule :: F.Module a -> X.Module a
 lowerModule m =

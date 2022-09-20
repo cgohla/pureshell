@@ -38,7 +38,10 @@ import qualified Language.PureScript.Names         as F (ProperName,
 import           Language.PureScript.PSString      (PSString)
 import           Text.Show.Singletons              ()
 
-import           Language.PureShell.Context.Ident
+import           Language.PureShell.Context.Ident    (Imports, Local, Locals,
+                                                      ModuleName, PIdent (..),
+                                                      PImported, PQIdent,
+                                                      PQualified(..))
 
 -- | Like CoreFn, but with context annotations
 
@@ -67,6 +70,8 @@ data Expr a (c :: [PQIdent]) where
 data BindList a (l :: [PIdent]) (c :: [PQIdent]) where
   BindListNil :: BindList a '[] c
   BindListCons :: Bind a l c -> BindList a l' c -> BindList a (l ++ l') c
+  -- NOTE We are not propagating the l into the tail of the list. This
+  -- could be wrong; CoreFn might assume scope nesting here.
 
 data Bind a (l :: [PIdent]) (c :: [PQIdent]) where
    NonRec :: a -> (Sing (i :: PIdent)) {- = -} -> (Expr a c) -> Bind a '[i] c

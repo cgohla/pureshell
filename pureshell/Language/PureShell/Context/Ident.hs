@@ -109,9 +109,9 @@ $(let
       let ts = [''Ident, ''ModuleName, ''Qualified, ''Imported]
       a <- genSingletons ts
       c <- singletons [d|
-                        local :: Ident -> Qualified Ident
+                        local :: a -> Qualified a
                         local = Qualified Nothing
-                        locals :: [Ident] -> [Qualified Ident]
+                        locals :: [a] -> [Qualified a]
                         locals = fmap local
                         import_ :: Imported a -> Qualified a
                         import_ (Imported m i) = Qualified (Just m) i

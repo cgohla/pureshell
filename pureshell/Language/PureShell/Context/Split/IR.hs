@@ -1,41 +1,112 @@
-{-# LANGUAGE DataKinds          #-}
-{-# LANGUAGE ExplicitNamespaces #-}
-{-# LANGUAGE GADTs              #-}
-{-# LANGUAGE KindSignatures     #-}
-{-# LANGUAGE PolyKinds          #-}
-{-# LANGUAGE TypeFamilies       #-}
-{-# LANGUAGE TypeOperators      #-}
+{-# LANGUAGE DataKinds                #-}
+{-# LANGUAGE EmptyCase                #-}
+{-# LANGUAGE ExplicitNamespaces       #-}
+{-# LANGUAGE GADTs                    #-}
+{-# LANGUAGE InstanceSigs             #-}
+{-# LANGUAGE KindSignatures           #-}
+{-# LANGUAGE PolyKinds                #-}
+{-# LANGUAGE QuasiQuotes              #-}
+{-# LANGUAGE ScopedTypeVariables      #-}
+{-# LANGUAGE StandaloneDeriving       #-}
+{-# LANGUAGE StandaloneKindSignatures #-}
+{-# LANGUAGE TemplateHaskell          #-}
+{-# LANGUAGE TypeApplications         #-}
+{-# LANGUAGE TypeFamilies             #-}
+{-# LANGUAGE TypeOperators            #-}
+{-# LANGUAGE UndecidableInstances     #-}
 module Language.PureShell.Context.Split.IR where
 
+import           Data.Singletons.TH.Options          (defaultOptions,
+                                                      defunctionalizedName,
+                                                      promotedDataTypeOrConName,
+                                                      withOptions)
+import           Data.Text                           (Text)
+import           GHC.TypeLits.Singletons             (Symbol)
+import           Language.Haskell.TH                 (Name)
+
+import           Data.Bool.Singletons                (FalseSym0, SBool (..),
+                                                      TrueSym0)
+import           Data.Eq.Singletons
+import           Data.Function.Singletons            (type (.@#@$), (%.))
+import           Data.Functor.Singletons             (FmapSym0, sFmap)
 import           Data.Kind                           (Type)
-import           Data.List.Singletons                (-- Lookup, SList (..),
-                                                      type (++))
-import           Data.Singletons                     (Sing)
-import           Data.Singletons.Prelude.List.Props5 (IsElement)
-import           Data.Tuple.Singletons               (Snd)
+import           Data.List.Singletons                (FilterSym0, SList (..),
+                                                      sFilter, type (++))
+import           Data.Singletons                     (Sing, sing)
+import           Data.Singletons.Prelude.List.Props5 (IsElement (..))
+import           Data.Singletons.TH                  (singletons)
+import           Data.Tuple.Singletons               (FstSym0, STuple2 (..),
+                                                      Snd, Tuple2Sym0, sFst)
+import           Language.PureScript.AST.SourcePos   (SourceSpan)
+import           Language.PureScript.Comments        (Comment)
 import qualified Language.PureScript.Names           as F (ProperName,
                                                            ProperNameType (..),
                                                            Qualified (..))
 import           Language.PureScript.PSString        (PSString)
 
--- TODO factor out names from Context
+import           Language.PureShell.Context.Ident    (Ident (..), Imported (..),
+                                                      Imports, LocalSym0,
+                                                      Locals, ModuleName (..),
+                                                      PIdent (..),
+                                                      PImported (..),
+                                                      PModuleName (..),
+                                                      PQualified (..),
+                                                      Qualified (..), local,
+                                                      sLocal)
 
 -- TODO a lot of types outside of Expr can presumably be shared with
 -- ContextCoreFn, if properly polymorphised
 
-data NameType = VarName | FunName
+$(singletons [d|
+               data NameType = VarName | FunName deriving Eq
+               |]
+ )
 
-type Ident = ()
+type Split a = (a, NameType)
 
-type family LocalsSplit (a :: k) :: k'
+-- TODO factor put the custom name mapping
+$(let
+     customPromote :: Name -> Name
+     customPromote n
+       | n == ''Imported = ''PImported
+       | n == 'Imported = 'PImported
+       | n == ''Ident  = ''PIdent
+       | n == 'Ident = 'PIdent
+       | n == 'GenIdent = 'PGenIdent
+       | n == 'UnusedIdent = 'PUnusedIdent
+       | n == ''Text     = ''Symbol
+       | n == ''ModuleName = ''PModuleName
+       | n == 'ModuleName = 'PModuleName
+       | n == ''Qualified = ''PQualified
+       | n == 'Qualified = 'PQualified
+       | otherwise       = promotedDataTypeOrConName defaultOptions n
 
-type SplitIdent = (Ident, NameType)
+     customDefun :: Name -> Int -> Name
+     customDefun n sat = defunctionalizedName defaultOptions (customPromote n) sat
+ in
+    withOptions defaultOptions{ promotedDataTypeOrConName = customPromote
+                              , defunctionalizedName      = customDefun
+                              } $
+    singletons [d|
+                 funVar :: k -> Split k
+                 funVar k = (k, FunName)
+                 funVars :: [k] -> [Split k]
+                 funVars = fmap funVar
 
-type Context = [QSplitIdent]
+                 varVar :: k -> Split k
+                 varVar k = (k, VarName)
+                 varVars :: [k] -> [Split k]
+                 varVars = fmap varVar
 
-type Qualified a = a
+                 localSplit :: Split a -> Split (Qualified a)
+                 localSplit (k, n) = (local k, n)
+                 localSplits :: [Split a] -> [Split (Qualified a)]
+                 localSplits = fmap localSplit
 
-type QSplitIdent = (Qualified Ident, NameType)
+                 funsOnly :: [Split a] -> [a]
+                 funsOnly = fmap fst . filter (\(_, n) -> n == FunName)
+                 |]
+ )
 
 data Literal a c
    = NumericLiteral (Either Integer Double)
@@ -45,36 +116,36 @@ data Literal a c
    | ArrayLiteral [Expr a c]
    | ObjectLiteral [(PSString, Expr a c)]
 
-data Expr a (c :: [(k', n)]) where
+-- | Abstractions are only allowed in let bindings
+data Abs a (c :: [Split (PQualified k)]) where
+  Lam :: a -> Sing (is :: [k]) -> Expr a (VarVars (Locals is) ++ FunVars (FunsOnly c)) -> Abs a c
+  Con :: a -> TypeName -> ConstructorName -> Sing (fs :: [k]) -> Abs a c
+
+data Expr a (c :: [Split (PQualified k)]) where
   Accessor     :: a -> PSString -> (Expr a c) -> Expr a c
   ObjectUpdate :: a -> Expr a c -> [(PSString, Expr a c)] -> Expr a c
   Literal      :: a -> Literal a c -> Expr a c
   App          :: a -> Expr a c -> [Expr a c] -> Expr a c
-  Var          :: a -> Sing (i :: (k', n)) -> IsElement i c -> Expr a c
+  Var          :: a -> Sing (i :: Split (PQualified k)) -> IsElement i c -> Expr a c
   Case         :: a -> [Expr a c] -> [CaseAlternative a c] -> Expr a c
   Let          :: a -> BindList a l c
-               -> {- in -} Expr a ((LocalsSplit l) ++ c)
+               -> {- in -} Expr a ((LocalSplits l) ++ c)
                -> Expr a c
 
--- | Abstractions are only allowed in let bindings
-data Abs a (c :: [(k', n)]) where
-  Lam :: a -> Sing (is :: [Ident]) -> Expr a (LocalsSplit is ++ c) -> Abs a c
-  Con :: a -> TypeName -> ConstructorName -> Sing (fs :: [Ident]) -> Abs a c
-
-data family Bound a (t :: n) (c :: [(k', n)]) :: Type
+data family Bound a (t :: n) (c :: [Split (PQualified k)]) :: Type
 data instance Bound a 'VarName c = BoundVar (Expr a c)
 data instance Bound a 'FunName c = BoundFun (Abs a c)
 
-data BindList a (l :: [(k, n)]) (c :: [(k', n)]) where
-  BindListNil  :: BindList a '[] c
+data BindList a (l :: [Split k]) (c :: [Split (PQualified k)]) where
+  BindListNil  :: BindList a '[] c -- TODO we should probably not allow empty lists
   BindListCons :: Bind a l c -> BindList a l' c -> BindList a (l ++ l') c
 
-data Bind a (l :: [(k, n)]) (c :: [(k', n)]) where
-   NonRec :: a -> Sing (i :: (k', n)) {- = -}
-          -> Bound a (Snd i) c -> Bind a '[t] c
-   Rec    :: RecList a l ((LocalsSplit l) ++ c) -> Bind a l c
+data Bind a (l :: [Split k]) (c :: [Split (PQualified k)]) where
+   NonRec :: a -> Sing (i :: Split k) {- = -}
+          -> Bound a (Snd i) c -> Bind a '[i] c
+   Rec    :: RecList a l ((LocalSplits l) ++ c) -> Bind a l c
 
-data family RecList a (l :: [(k, n)]) (c :: [(k', n)]) :: Type
+data family RecList a (l :: [Split k]) (c :: [Split (PQualified k)]) :: Type
 data instance RecList a '[] c = RecNil
 data instance RecList a (i ': is) c = RecCons a (Sing i)
                                       {- = -} (Bound a (Snd i) c)
@@ -119,5 +190,63 @@ data BinderList a l where
 
 data CaseAlternative a c = forall l. CaseAlternative
    { caseAlternativeBinders :: BinderList a l
-   , caseAlternativeResult  :: Either [(Guard a (LocalsSplit l ++ c), Expr a (LocalsSplit l ++ c))] (Expr a (LocalsSplit l ++ c))
+   , caseAlternativeResult  :: Either [ ( Guard a (LocalSplits l ++ c)
+                                        , Expr a (LocalSplits l ++ c)
+                                        )
+                                      ]
+                               (Expr a (LocalSplits l ++ c))
    }
+
+example0 :: a -> Sing c -> Expr a (c :: [Split (PQualified PIdent)])
+example0 a c = Let a (BindListCons
+                       (NonRec
+                        a
+                        (sing @('( 'PIdent "flip", 'FunName)))
+                        (BoundFun $ Lam a (sing @'[ 'PIdent "f"
+                                                  , 'PIdent "x"
+                                                  , 'PIdent "y"
+                                                  ]
+                                          ) $
+                          let
+                            f = sVarVar $ sLocal $ sing @('PIdent "f")
+                            x = sVarVar $ sLocal $ sing @('PIdent "x")
+                            y = sVarVar $ sLocal $ sing @('PIdent "y")
+                            c''' = SCons x c''
+                            c'' = SCons y c'
+                            c' = funVars $ funsOnly c
+                            -- TODO construct proofs that our local
+                            -- variables are actually contained in the
+                            -- mangled context. Maybe we need to
+                            -- change the definiton of element
+                            -- proofs. (We are probably putting too
+                            -- much data into it).
+                          in
+                            (App a (Var a f $ IsElementHead f c''') $
+                             [ Var a y $ IsElementTail f $ IsElementTail x $ IsElementHead y c'
+                             , Var a x $ IsElementTail f $ IsElementHead x c''
+                             ]
+                            )
+                        )
+                       )
+                       BindListNil
+                     ) $
+               let n = sFunVar $ sLocal $ sing @('PIdent "flip") in
+               Var a n (IsElementHead n c)
+
+data Module a = forall l f i. Module
+  { moduleSourceSpan :: SourceSpan
+  , moduleComments   :: [Comment]
+  , moduleName       :: ModuleName
+  , modulePath       :: FilePath
+  -- , moduleImports    :: [(a, ModuleName)]
+  -- , moduleExports    :: [Ident]
+  -- , moduleReExports  :: Map ModuleName [Ident]
+  -- NOTE Since Bash has no notion of modules or name spaces we have
+  -- no use for these.
+  , moduleImports    :: Sing (i :: [PImported PIdent])
+  -- ^ This is an enumeration of all imported symbols, not just module
+  -- names as in CoreFn. We will need to compute this information.
+  , moduleForeign    :: Sing (f :: [PIdent])
+  , moduleDecls      :: BindList a l (FunVars (Imports i ++ Locals f))
+  -- ^ NOTE All imports and all foreign symbols are function names
+  }

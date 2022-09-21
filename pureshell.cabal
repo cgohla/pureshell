@@ -84,7 +84,6 @@ library
     , shell-escape
     , singletons
     , singletons-base
-    , singletons-lists-props
     , singletons-th
     , template-haskell
     , temporary
@@ -95,6 +94,7 @@ library
     App.Driver
     App.Main
     App.Options
+    Data.List.Props
     Language.Bash.Test
     Language.PureShell
     Language.PureShell.Combinatory.CodeGen

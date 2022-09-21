@@ -28,33 +28,34 @@ module Language.PureShell.ContextCoreFn.IR where
 import           Data.Bool.Singletons
 import           Data.Eq.Singletons
 import           Data.Functor.Singletons
-import           Data.Functor.Singletons             (FmapSym0, sFmap)
-import           Data.Kind                           (Type)
+import           Data.Functor.Singletons           (FmapSym0, sFmap)
+import           Data.Kind                         (Type)
+import           Data.List.Props                   (IsElem (..), decideIsElem)
 import           Data.List.Singletons
-import           Data.Maybe.Singletons               (JustSym0, NothingSym0,
-                                                      SMaybe (..))
+import           Data.Maybe.Singletons             (JustSym0, NothingSym0,
+                                                    SMaybe (..))
 import           Data.Ord.Singletons
-import           Data.Singletons                     (Sing, SingI, sing)
-import           Data.Singletons.Base.TH             (FromInteger, FromString)
-import           Data.Singletons.Prelude.List.Props5 (IsElement (..))
-import           Data.Singletons.TH                  (genSingletons, promote,
-                                                      singDecideInstances,
-                                                      singletons)
-import           Data.Singletons.TH.Options          (defaultOptions,
-                                                      defunctionalizedName,
-                                                      promotedDataTypeOrConName,
-                                                      withOptions)
-import           Data.Text                           (Text)
-import           GHC.TypeLits                        (Nat)
-import           GHC.TypeLits.Singletons             (Symbol)
-import           Language.Haskell.TH                 (Name)
-import           Language.PureScript.AST.SourcePos   (SourceSpan)
-import           Language.PureScript.Comments        (Comment)
-import qualified Language.PureScript.Names           as F (ProperName,
-                                                           ProperNameType (..),
-                                                           Qualified (..))
-import           Language.PureScript.PSString        (PSString)
-import           Text.Show.Singletons                ()
+import           Data.Singletons                   (Sing, SingI, sing)
+import           Data.Singletons.Base.TH           (FromInteger, FromString)
+import           Data.Singletons.Decide            ((:~:) (..))
+import           Data.Singletons.TH                (genSingletons, promote,
+                                                    singDecideInstances,
+                                                    singletons)
+import           Data.Singletons.TH.Options        (defaultOptions,
+                                                    defunctionalizedName,
+                                                    promotedDataTypeOrConName,
+                                                    withOptions)
+import           Data.Text                         (Text)
+import           GHC.TypeLits                      (Nat)
+import           GHC.TypeLits.Singletons           (Symbol)
+import           Language.Haskell.TH               (Name)
+import           Language.PureScript.AST.SourcePos (SourceSpan)
+import           Language.PureScript.Comments      (Comment)
+import qualified Language.PureScript.Names         as F (ProperName,
+                                                         ProperNameType (..),
+                                                         Qualified (..))
+import           Language.PureScript.PSString      (PSString)
+import           Text.Show.Singletons              ()
 
 -- | Like CoreFn, but with context annotations
 
@@ -172,7 +173,7 @@ data Expr a (c :: [PQIdent]) where
   Literal      :: a -> Literal a c -> Expr a c
   Abs          :: a -> Sing (i :: PIdent) -> (Expr a ((Local i) ': c)) -> Expr a c
   App          :: a -> Expr a c -> Expr a c -> Expr a c
-  Var          :: a -> Sing (i :: PQIdent) -> IsElement i c -> Expr a c
+  Var          :: a -> Sing (i :: PQIdent) -> IsElem i c -> Expr a c
   Case         :: a -> [Expr a c] -> [CaseAlternative a c] -> Expr a c
   -- ^ NOTE As is this does not guarantee that there are enough
   -- expressions for the binders in each branch
@@ -242,7 +243,10 @@ data CaseAlternative a c = forall (l :: [PIdent]). CaseAlternative
 example0 :: Expr () '[]
 example0 = Let () (BindListCons
                     (Rec (RecCons ()
-                          (sing @('PIdent "bar")) {- = -} (Var () (sing @('PQualified 'Nothing ('PIdent "bar"))) (IsElementHead sing sing) ) $
+                          (sing @('PIdent "bar")) {- = -} (Var ()
+                                                           (sing @('PQualified 'Nothing ('PIdent "bar")))
+                                                           (IsElemHead Refl)
+                                                          ) $
                          -- ^ NOTE This is legal in a LetRec. We must
                          -- take care when lowering though: recursion in
                          -- bash must use functions.
@@ -253,13 +257,14 @@ example0 = Let () (BindListCons
                     )
                     BindListNil
                   )
-           (Var () (sing @('PQualified 'Nothing ('PIdent "foo"))
-                   )
-             (IsElementTail sing $ IsElementHead sing sing)
+           (Var ()
+             (sing @('PQualified 'Nothing ('PIdent "foo")))
+             (IsElemTail $ IsElemHead Refl
+             )
            )
 
 example1 :: Expr () '[ Local('PIdent "foo")]
-example1 = Case () [Var () (sing @(Local('PIdent "foo"))) $ IsElementHead sing sing]
+example1 = Case () [Var () (sing @(Local('PIdent "foo"))) $ IsElemHead Refl ]
            [ {- match -} CaseAlternative (BinderListCons (LiteralBinder () $ BooleanLitBinder False ) BinderListNil)
              {- then -} (Right $ Literal () $ BooleanLiteral True)
            ]

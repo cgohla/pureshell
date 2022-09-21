@@ -23,7 +23,8 @@ import           Data.Maybe                          (fromMaybe)
 import           Data.Singletons                     (Sing, fromSing,
                                                       withSomeSing)
 import           Data.Singletons.Decide              (type (:~:) (..))
-import           Data.Singletons.Prelude.List.Props5 (decideIsElement)
+import           Data.List.Props                     (decideIsElem,
+                                                      listRightUnit)
 
 import qualified Language.PureShell.ContextCoreFn.IR as X
 import qualified Language.PureShell.CoreFn.IR        as F
@@ -184,17 +185,14 @@ elaborateExpr c (F.Abs a i e)            = withSomeSing (elaborateIdent i) $
                                            \i' -> X.Abs a i' $ elaborateExpr (SCons (X.sLocal i') c) e
 elaborateExpr c (F.App a e e')           = X.App a (elaborateExpr c e) (elaborateExpr c e')
 elaborateExpr c (F.Var a i)              = withSomeSing (elaborateQualifiedIdent i) $
-                                           \i' -> maybe (error "Scope error in CoreFn") (X.Var a i') (decideIsElement i' c)
+                                           \i' -> maybe (error "Scope error in CoreFn")
+                                                  (X.Var a i')
+                                                  (decideIsElem i' c)
 elaborateExpr c (F.Case a es as)         = X.Case a (fmap (elaborateExpr c) es) $
                                            fmap (elaborateCaseAlternative c) as
 elaborateExpr c (F.Let a bs e)           = case elaborateBindList c bs of
                                              SomeBindList l bs' ->
                                                X.Let a bs' $ elaborateExpr (X.sLocals l %++ c) e
-
-listRightUnit :: Sing a -> a :~: (a ++ '[])
-listRightUnit SNil = Refl
-listRightUnit (SCons _ as) = case listRightUnit as of
-                             Refl -> Refl
 
 elaborateRecList :: forall l c a. Sing l -> Sing c
                  -> Map X.Ident (a, F.Expr a)

@@ -16,43 +16,43 @@
 {-# LANGUAGE UndecidableInstances     #-}
 module Language.PureShell.Context.Split.IR where
 
-import           Data.Singletons.TH.Options          (defaultOptions,
-                                                      defunctionalizedName,
-                                                      promotedDataTypeOrConName,
-                                                      withOptions)
-import           Data.Text                           (Text)
-import           GHC.TypeLits.Singletons             (Symbol)
-import           Language.Haskell.TH                 (Name)
+import           Data.Singletons.Decide            (type (:~:) (..))
+import           Data.Singletons.TH.Options        (defaultOptions,
+                                                    defunctionalizedName,
+                                                    promotedDataTypeOrConName,
+                                                    withOptions)
+import           Data.Text                         (Text)
+import           GHC.TypeLits.Singletons           (Symbol)
+import           Language.Haskell.TH               (Name)
 
-import           Data.Bool.Singletons                (FalseSym0, SBool (..),
-                                                      TrueSym0)
+import           Data.Bool.Singletons              (FalseSym0, SBool (..),
+                                                    TrueSym0)
 import           Data.Eq.Singletons
-import           Data.Function.Singletons            (type (.@#@$), (%.))
-import           Data.Functor.Singletons             (FmapSym0, sFmap)
-import           Data.Kind                           (Type)
-import           Data.List.Singletons                (FilterSym0, SList (..),
-                                                      sFilter, type (++))
-import           Data.Singletons                     (Sing, sing)
-import           Data.Singletons.Prelude.List.Props5 (IsElement (..))
-import           Data.Singletons.TH                  (singletons)
-import           Data.Tuple.Singletons               (FstSym0, STuple2 (..),
-                                                      Snd, Tuple2Sym0, sFst)
-import           Language.PureScript.AST.SourcePos   (SourceSpan)
-import           Language.PureScript.Comments        (Comment)
-import qualified Language.PureScript.Names           as F (ProperName,
-                                                           ProperNameType (..),
-                                                           Qualified (..))
-import           Language.PureScript.PSString        (PSString)
+import           Data.Function.Singletons          (type (.@#@$), (%.))
+import           Data.Functor.Singletons           (FmapSym0, sFmap)
+import           Data.Kind                         (Type)
+import           Data.List.Props                   (IsElem (..))
+import           Data.List.Singletons              (FilterSym0, SList (..),
+                                                    sFilter, type (++))
+import           Data.Singletons                   (Sing, sing)
+import           Data.Singletons.TH                (singletons)
+import           Data.Tuple.Singletons             (FstSym0, STuple2 (..), Snd,
+                                                    Tuple2Sym0, sFst)
+import           Language.PureScript.AST.SourcePos (SourceSpan)
+import           Language.PureScript.Comments      (Comment)
+import qualified Language.PureScript.Names         as F (ProperName,
+                                                         ProperNameType (..),
+                                                         Qualified (..))
+import           Language.PureScript.PSString      (PSString)
 
-import           Language.PureShell.Context.Ident    (Ident (..), Imported (..),
-                                                      Imports, LocalSym0,
-                                                      Locals, ModuleName (..),
-                                                      PIdent (..),
-                                                      PImported (..),
-                                                      PModuleName (..),
-                                                      PQualified (..),
-                                                      Qualified (..), local,
-                                                      sLocal)
+import           Language.PureShell.Context.Ident  (Ident (..), Imported (..),
+                                                    Imports, LocalSym0, Locals,
+                                                    ModuleName (..),
+                                                    PIdent (..), PImported (..),
+                                                    PModuleName (..),
+                                                    PQualified (..),
+                                                    Qualified (..), local,
+                                                    sLocal)
 
 -- TODO a lot of types outside of Expr can presumably be shared with
 -- ContextCoreFn, if properly polymorphised
@@ -126,7 +126,7 @@ data Expr a (c :: [Split (PQualified k)]) where
   ObjectUpdate :: a -> Expr a c -> [(PSString, Expr a c)] -> Expr a c
   Literal      :: a -> Literal a c -> Expr a c
   App          :: a -> Expr a c -> [Expr a c] -> Expr a c
-  Var          :: a -> Sing (i :: Split (PQualified k)) -> IsElement i c -> Expr a c
+  Var          :: a -> Sing (i :: Split (PQualified k)) -> IsElem i c -> Expr a c
   Case         :: a -> [Expr a c] -> [CaseAlternative a c] -> Expr a c
   Let          :: a -> BindList a l c
                -> {- in -} Expr a ((LocalSplits l) ++ c)
@@ -211,19 +211,10 @@ example0 a c = Let a (BindListCons
                             f = sVarVar $ sLocal $ sing @('PIdent "f")
                             x = sVarVar $ sLocal $ sing @('PIdent "x")
                             y = sVarVar $ sLocal $ sing @('PIdent "y")
-                            c''' = SCons x c''
-                            c'' = SCons y c'
-                            c' = funVars $ funsOnly c
-                            -- TODO construct proofs that our local
-                            -- variables are actually contained in the
-                            -- mangled context. Maybe we need to
-                            -- change the definiton of element
-                            -- proofs. (We are probably putting too
-                            -- much data into it).
                           in
-                            (App a (Var a f $ IsElementHead f c''') $
-                             [ Var a y $ IsElementTail f $ IsElementTail x $ IsElementHead y c'
-                             , Var a x $ IsElementTail f $ IsElementHead x c''
+                            (App a (Var a f $ IsElemHead Refl) $
+                             [ Var a y $ IsElemTail $ IsElemTail $ IsElemHead Refl
+                             , Var a x $ IsElemTail $ IsElemHead Refl
                              ]
                             )
                         )
@@ -231,7 +222,7 @@ example0 a c = Let a (BindListCons
                        BindListNil
                      ) $
                let n = sFunVar $ sLocal $ sing @('PIdent "flip") in
-               Var a n (IsElementHead n c)
+               Var a n $ IsElemHead Refl
 
 data Module a = forall l f i. Module
   { moduleSourceSpan :: SourceSpan

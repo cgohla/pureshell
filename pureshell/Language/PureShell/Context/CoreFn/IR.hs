@@ -25,11 +25,13 @@
 {-# LANGUAGE UndecidableInstances     #-}
 module Language.PureShell.Context.CoreFn.IR where
 
+
 import           Data.Bool.Singletons
 import           Data.Kind                         (Type)
 import           Data.List.Props                   (IsElem (..), decideIsElem)
 import           Data.List.Singletons
 import           Data.Singletons                   (sing)
+import           Data.Singletons.Decide            (type (:~:) (..))
 import           Language.PureScript.AST.SourcePos (SourceSpan)
 import           Language.PureScript.Comments      (Comment)
 import qualified Language.PureScript.Names         as F (ProperName,
@@ -38,10 +40,10 @@ import qualified Language.PureScript.Names         as F (ProperName,
 import           Language.PureScript.PSString      (PSString)
 import           Text.Show.Singletons              ()
 
-import           Language.PureShell.Context.Ident    (Imports, Local, Locals,
-                                                      ModuleName, PIdent (..),
-                                                      PImported, PQIdent,
-                                                      PQualified(..))
+import           Language.PureShell.Context.Ident  (Imports, Local, Locals,
+                                                    ModuleName, PIdent (..),
+                                                    PImported, PQIdent,
+                                                    PQualified (..))
 
 -- | Like CoreFn, but with context annotations
 

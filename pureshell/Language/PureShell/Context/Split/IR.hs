@@ -224,7 +224,7 @@ example0 a c = Let a (BindListCons
                let n = sFunVar $ sLocal $ sing @('PIdent "flip") in
                Var a n $ IsElemHead Refl
 
-data Module a = forall l f i. Module
+data Module a = forall k l f i. Module
   { moduleSourceSpan :: SourceSpan
   , moduleComments   :: [Comment]
   , moduleName       :: ModuleName
@@ -234,10 +234,10 @@ data Module a = forall l f i. Module
   -- , moduleReExports  :: Map ModuleName [Ident]
   -- NOTE Since Bash has no notion of modules or name spaces we have
   -- no use for these.
-  , moduleImports    :: Sing (i :: [PImported PIdent])
+  , moduleImports    :: Sing (i :: [PImported k])
   -- ^ This is an enumeration of all imported symbols, not just module
   -- names as in CoreFn. We will need to compute this information.
-  , moduleForeign    :: Sing (f :: [PIdent])
+  , moduleForeign    :: Sing (f :: [k])
   , moduleDecls      :: BindList a l (FunVars (Imports i ++ Locals f))
   -- ^ NOTE All imports and all foreign symbols are function names
   }

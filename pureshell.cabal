@@ -67,7 +67,7 @@ library
   default-language: Haskell2010
   build-depends:
     , aeson
-    , base                    ^>=4.16.3.0
+    , base                  ^>=4.16.3.0
     , bash
     , binary
     , bytestring
@@ -104,6 +104,7 @@ library
     Language.PureShell.Combinatory.Lower
     Language.PureShell.Combinatory.Shell
     Language.PureShell.Context.CoreFn.IR
+    Language.PureShell.Context.CoreFn.Lower
     Language.PureShell.Context.Ident
     Language.PureShell.Context.Split.IR
     Language.PureShell.CoreFn.CodeGen

@@ -28,3 +28,7 @@ listRightUnit :: Sing a -> a :~: (a ++ '[])
 listRightUnit SNil = Refl
 listRightUnit (SCons _ as) = case listRightUnit as of
                              Refl -> Refl
+
+-- (p x :~: 'True) -> Filter p (x ': xs) :~: x ': (Filter p xs)
+
+-- IsElem x xs -> p x :~: 'True -> IsElem x (Filter )

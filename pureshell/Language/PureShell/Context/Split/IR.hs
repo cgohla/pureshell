@@ -16,43 +16,48 @@
 {-# LANGUAGE UndecidableInstances     #-}
 module Language.PureShell.Context.Split.IR where
 
-import           Data.Singletons.Decide            (type (:~:) (..))
-import           Data.Singletons.TH.Options        (defaultOptions,
-                                                    defunctionalizedName,
-                                                    promotedDataTypeOrConName,
-                                                    withOptions)
-import           Data.Text                         (Text)
-import           GHC.TypeLits.Singletons           (Symbol)
-import           Language.Haskell.TH               (Name)
+import           Data.Singletons.Decide              (type (:~:) (..))
+import           Data.Singletons.TH.Options          (defaultOptions,
+                                                      defunctionalizedName,
+                                                      promotedDataTypeOrConName,
+                                                      withOptions)
+import           Data.Text                           (Text)
+import           GHC.TypeLits.Singletons             (Symbol)
+import           Language.Haskell.TH                 (Name)
 
-import           Data.Bool.Singletons              (FalseSym0, SBool (..),
-                                                    TrueSym0)
+import           Data.Bool.Singletons                (FalseSym0, SBool (..),
+                                                      TrueSym0)
 import           Data.Eq.Singletons
-import           Data.Function.Singletons          (type (.@#@$), (%.))
-import           Data.Functor.Singletons           (FmapSym0, sFmap)
-import           Data.Kind                         (Type)
-import           Data.List.Props                   (IsElem (..))
-import           Data.List.Singletons              (FilterSym0, SList (..),
-                                                    sFilter, type (++))
-import           Data.Singletons                   (Sing, sing)
-import           Data.Singletons.TH                (singletons)
-import           Data.Tuple.Singletons             (FstSym0, STuple2 (..), Snd,
-                                                    Tuple2Sym0, sFst)
-import           Language.PureScript.AST.SourcePos (SourceSpan)
-import           Language.PureScript.Comments      (Comment)
-import qualified Language.PureScript.Names         as F (ProperName,
-                                                         ProperNameType (..),
-                                                         Qualified (..))
-import           Language.PureScript.PSString      (PSString)
+import           Data.Function.Singletons            (type (.@#@$), (%.))
+import           Data.Functor.Singletons             (FmapSym0, sFmap)
+import           Data.Kind                           (Type)
+import           Data.List.NonEmpty                  (NonEmpty (..))
+import           Data.List.NonEmpty.Singletons       (SNonEmpty (..),
+                                                      type ToList)
+import           Data.List.Singletons                (FilterSym0, SList (..),
+                                                      sFilter, type (++))
+import           Data.Singletons                     (Sing, sing)
+import           Data.Singletons.TH                  (singletons)
+import           Data.Tuple.Singletons               (FstSym0, STuple2 (..),
+                                                      Snd, Tuple2Sym0, sFst)
+import           Language.PureScript.AST.SourcePos   (SourceSpan)
+import           Language.PureScript.Comments        (Comment)
+import qualified Language.PureScript.Names           as F (ProperName,
+                                                           ProperNameType (..),
+                                                           Qualified (..))
+import           Language.PureScript.PSString        (PSString)
 
-import           Language.PureShell.Context.Ident  (Ident (..), Imported (..),
-                                                    Imports, LocalSym0, Locals,
-                                                    ModuleName (..),
-                                                    PIdent (..), PImported (..),
-                                                    PModuleName (..),
-                                                    PQualified (..),
-                                                    Qualified (..), local,
-                                                    sLocal)
+import           Data.List.Props                     (IsElem (..))
+import           Language.PureShell.Context.Ident    (Ident (..), Imported (..),
+                                                      Imports, LocalSym0,
+                                                      Locals, ModuleName (..),
+                                                      PIdent (..),
+                                                      PImported (..),
+                                                      PModuleName (..),
+                                                      PQualified (..),
+                                                      Qualified (..), local,
+                                                      sLocal)
+import           Language.PureShell.Context.Literals (Literal (..))
 
 -- TODO a lot of types outside of Expr can presumably be shared with
 -- ContextCoreFn, if properly polymorphised
@@ -108,24 +113,23 @@ $(let
                  |]
  )
 
-data Literal a c
-   = NumericLiteral (Either Integer Double)
-   | StringLiteral PSString
-   | CharLiteral Char
-   | BooleanLiteral Bool
-   | ArrayLiteral [Expr a c]
-   | ObjectLiteral [(PSString, Expr a c)]
-
 -- | Abstractions are only allowed in let bindings
 data Abs a (c :: [Split (PQualified k)]) where
-  Lam :: a -> Sing (is :: [k]) -> Expr a (VarVars (Locals is) ++ FunVars (FunsOnly c)) -> Abs a c
-  Con :: a -> TypeName -> ConstructorName -> Sing (fs :: [k]) -> Abs a c
+  Lam :: a
+      -> Sing (is :: NonEmpty k)
+      -> Expr a (VarVars (Locals (ToList is)) ++ FunVars (FunsOnly c))
+      -> Abs a c
+  Con :: a
+      -> TypeName
+      -> ConstructorName
+      -> Sing (fs :: [k])
+      -> Abs a c
 
 data Expr a (c :: [Split (PQualified k)]) where
   Accessor     :: a -> PSString -> (Expr a c) -> Expr a c
   ObjectUpdate :: a -> Expr a c -> [(PSString, Expr a c)] -> Expr a c
-  Literal      :: a -> Literal a c -> Expr a c
-  App          :: a -> Expr a c -> [Expr a c] -> Expr a c
+  Literal      :: a -> Literal a Expr c -> Expr a c
+  App          :: a -> Expr a c -> NonEmpty (Expr a c) -> Expr a c
   Var          :: a -> Sing (i :: Split (PQualified k)) -> IsElem i c -> Expr a c
   Case         :: a -> [Expr a c] -> [CaseAlternative a c] -> Expr a c
   Let          :: a -> BindList a l c
@@ -202,10 +206,11 @@ example0 a c = Let a (BindListCons
                        (NonRec
                         a
                         (sing @('( 'PIdent "flip", 'FunName)))
-                        (BoundFun $ Lam a (sing @'[ 'PIdent "f"
-                                                  , 'PIdent "x"
-                                                  , 'PIdent "y"
-                                                  ]
+                        (BoundFun $ Lam a (sing @('PIdent "f" ':|
+                                                  '[ 'PIdent "x"
+                                                   , 'PIdent "y"
+                                                   ]
+                                                 )
                                           ) $
                           let
                             f = sVarVar $ sLocal $ sing @('PIdent "f")
@@ -213,9 +218,8 @@ example0 a c = Let a (BindListCons
                             y = sVarVar $ sLocal $ sing @('PIdent "y")
                           in
                             (App a (Var a f $ IsElemHead Refl) $
-                             [ Var a y $ IsElemTail $ IsElemTail $ IsElemHead Refl
-                             , Var a x $ IsElemTail $ IsElemHead Refl
-                             ]
+                             ( Var a y $ IsElemTail $ IsElemTail $ IsElemHead Refl ) :|
+                             [ Var a x $ IsElemTail $ IsElemHead Refl ]
                             )
                         )
                        )

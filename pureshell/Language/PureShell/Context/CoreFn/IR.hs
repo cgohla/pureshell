@@ -27,40 +27,36 @@ module Language.PureShell.Context.CoreFn.IR where
 
 
 import           Data.Bool.Singletons
-import           Data.Kind                         (Type)
-import           Data.List.Props                   (IsElem (..), decideIsElem)
+import           Data.Kind                           (Type)
+import           Data.List.Props                     (IsElem (..), decideIsElem)
 import           Data.List.Singletons
-import           Data.Singletons                   (sing)
-import           Data.Singletons.Decide            (type (:~:) (..))
-import           Language.PureScript.AST.SourcePos (SourceSpan)
-import           Language.PureScript.Comments      (Comment)
-import qualified Language.PureScript.Names         as F (ProperName,
-                                                         ProperNameType (..),
-                                                         Qualified (..))
-import           Language.PureScript.PSString      (PSString)
-import           Text.Show.Singletons              ()
+import           Data.Singletons                     (sing)
+import           Data.Singletons.Decide              (type (:~:) (..))
+import           Language.PureScript.AST.SourcePos   (SourceSpan)
+import           Language.PureScript.Comments        (Comment)
+import qualified Language.PureScript.Names           as F (ProperName,
+                                                           ProperNameType (..),
+                                                           Qualified (..))
+import           Language.PureScript.PSString        (PSString)
+import           Text.Show.Singletons                ()
 
-import           Language.PureShell.Context.Ident  (Imports, Local, Locals,
-                                                    ModuleName, PIdent (..),
-                                                    PImported, PQIdent,
-                                                    PQualified (..))
+
+import           Language.PureShell.Context.Ident    (Imports, Local, Locals,
+                                                      ModuleName, PIdent (..),
+                                                      PImported, PQIdent,
+                                                      PQualified (..))
+import           Language.PureShell.Context.Literals (Literal (..))
+
 
 -- | Like CoreFn, but with context annotations
 
-data Literal a c
-   = NumericLiteral (Either Integer Double)
-   | StringLiteral PSString
-   | CharLiteral Char
-   | BooleanLiteral Bool
-   | ArrayLiteral [Expr a c]
-   | ObjectLiteral [(PSString, Expr a c)]
-
 data Expr a (c :: [PQIdent]) where
-  Constructor  :: a -> (F.ProperName 'F.TypeName) -> (F.ProperName 'F.ConstructorName) -> Sing (fs :: [PIdent]) -> Expr a c
+  Constructor  :: a -> (F.ProperName 'F.TypeName)
+               -> (F.ProperName 'F.ConstructorName) -> Sing (fs :: [PIdent]) -> Expr a c
   -- ^ This is like a lambda
   Accessor     :: a -> PSString -> (Expr a c) -> Expr a c -- ^ This is like an application
   ObjectUpdate :: a -> (Expr a c) -> [(PSString, Expr a c)] -> Expr a c -- ^ This is like an application
-  Literal      :: a -> Literal a c -> Expr a c
+  Literal      :: a -> Literal a Expr c -> Expr a c
   Abs          :: a -> Sing (i :: PIdent) -> (Expr a ((Local i) ': c)) -> Expr a c
   App          :: a -> Expr a c -> Expr a c -> Expr a c
   Var          :: a -> Sing (i :: PQIdent) -> IsElem i c -> Expr a c

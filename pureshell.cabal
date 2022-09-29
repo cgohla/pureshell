@@ -106,6 +106,7 @@ library
     Language.PureShell.Context.CoreFn.IR
     Language.PureShell.Context.CoreFn.Lower
     Language.PureShell.Context.Ident
+    Language.PureShell.Context.Literals
     Language.PureShell.Context.Split.IR
     Language.PureShell.CoreFn.CodeGen
     Language.PureShell.CoreFn.IR

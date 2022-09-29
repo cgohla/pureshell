@@ -111,11 +111,11 @@ $(let
       c <- singletons [d|
                         local :: a -> Qualified a
                         local = Qualified Nothing
-                        locals :: [a] -> [Qualified a]
+                        locals :: Functor f => f a -> f (Qualified a)
                         locals = fmap local
                         import_ :: Imported a -> Qualified a
                         import_ (Imported m i) = Qualified (Just m) i
-                        imports :: [Imported a] -> [Qualified a]
+                        imports :: Functor f => f (Imported a) -> f (Qualified a)
                         imports = fmap import_
 
                         deriving instance Eq Ident

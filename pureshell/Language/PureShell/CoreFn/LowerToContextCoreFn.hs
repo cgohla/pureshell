@@ -29,6 +29,7 @@ import           Data.Singletons.Decide               (type (:~:) (..))
 import qualified Language.PureShell.Context.CoreFn.IR as X
 import qualified Language.PureShell.Context.Ident     as X
 import qualified Language.PureShell.CoreFn.IR         as F
+import           Language.PureShell.Context.Literals          (Literal (..))
 
 lowerModule :: F.Module a -> X.Module a
 lowerModule m =
@@ -100,14 +101,14 @@ elaborateQualifiedIdent (F.Qualified m i) = X.Qualified (f m) $ elaborateIdent i
     f (F.ByModuleName (F.ModuleName n)) = Just $ X.ModuleName n
     f _                                 = error "not implemented"
 
-elaborateLiteral :: Sing c -> F.Literal (F.Expr a) -> X.Literal a c
-elaborateLiteral _ (F.NumericLiteral n) = X.NumericLiteral n
-elaborateLiteral _ (F.StringLiteral s)  = X.StringLiteral s
-elaborateLiteral _ (F.CharLiteral c)    = X.CharLiteral c
-elaborateLiteral _ (F.BooleanLiteral b) = X.BooleanLiteral b
-elaborateLiteral c (F.ArrayLiteral as)  = X.ArrayLiteral $
+elaborateLiteral :: Sing c -> F.Literal (F.Expr a) -> Literal a X.Expr c
+elaborateLiteral _ (F.NumericLiteral n) = NumericLiteral n
+elaborateLiteral _ (F.StringLiteral s)  = StringLiteral s
+elaborateLiteral _ (F.CharLiteral c)    = CharLiteral c
+elaborateLiteral _ (F.BooleanLiteral b) = BooleanLiteral b
+elaborateLiteral c (F.ArrayLiteral as)  = ArrayLiteral $
   fmap (elaborateExpr c) as
-elaborateLiteral c (F.ObjectLiteral as)  = X.ObjectLiteral $
+elaborateLiteral c (F.ObjectLiteral as)  = ObjectLiteral $
   fmap (second $ elaborateExpr c) as
 
 data SomeLitBinderArray a = forall l. SomeLitBinderArray (Sing l) (X.LitBinderArray a l)

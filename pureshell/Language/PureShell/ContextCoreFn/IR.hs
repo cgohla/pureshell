@@ -1,28 +1,30 @@
-{-# LANGUAGE AllowAmbiguousTypes      #-}
-{-# LANGUAGE DataKinds                #-}
-{-# LANGUAGE DeriveFunctor            #-}
-{-# LANGUAGE EmptyCase                #-}
-{-# LANGUAGE ExplicitNamespaces       #-}
-{-# LANGUAGE FlexibleContexts         #-}
-{-# LANGUAGE FlexibleInstances        #-}
-{-# LANGUAGE GADTs                    #-}
-{-# LANGUAGE IncoherentInstances      #-}
-{-# LANGUAGE InstanceSigs             #-}
-{-# LANGUAGE LambdaCase               #-}
-{-# LANGUAGE MultiParamTypeClasses    #-}
-{-# LANGUAGE OverlappingInstances     #-}
-{-# LANGUAGE OverloadedStrings        #-}
-{-# LANGUAGE PolyKinds                #-}
-{-# LANGUAGE QuasiQuotes              #-}
-{-# LANGUAGE RankNTypes               #-}
-{-# LANGUAGE ScopedTypeVariables      #-}
-{-# LANGUAGE StandaloneDeriving       #-}
-{-# LANGUAGE StandaloneKindSignatures #-}
-{-# LANGUAGE TemplateHaskell          #-}
-{-# LANGUAGE TypeApplications         #-}
-{-# LANGUAGE TypeFamilies             #-}
-{-# LANGUAGE TypeOperators            #-}
-{-# LANGUAGE UndecidableInstances     #-}
+{-# LANGUAGE AllowAmbiguousTypes        #-}
+{-# LANGUAGE DataKinds                  #-}
+{-# LANGUAGE DeriveFunctor              #-}
+{-# LANGUAGE DerivingStrategies         #-}
+{-# LANGUAGE EmptyCase                  #-}
+{-# LANGUAGE ExplicitNamespaces         #-}
+{-# LANGUAGE FlexibleContexts           #-}
+{-# LANGUAGE FlexibleInstances          #-}
+{-# LANGUAGE GADTs                      #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE IncoherentInstances        #-}
+{-# LANGUAGE InstanceSigs               #-}
+{-# LANGUAGE LambdaCase                 #-}
+{-# LANGUAGE MultiParamTypeClasses      #-}
+{-# LANGUAGE OverlappingInstances       #-}
+{-# LANGUAGE OverloadedStrings          #-}
+{-# LANGUAGE PolyKinds                  #-}
+{-# LANGUAGE QuasiQuotes                #-}
+{-# LANGUAGE RankNTypes                 #-}
+{-# LANGUAGE ScopedTypeVariables        #-}
+{-# LANGUAGE StandaloneDeriving         #-}
+{-# LANGUAGE StandaloneKindSignatures   #-}
+{-# LANGUAGE TemplateHaskell            #-}
+{-# LANGUAGE TypeApplications           #-}
+{-# LANGUAGE TypeFamilies               #-}
+{-# LANGUAGE TypeOperators              #-}
+{-# LANGUAGE UndecidableInstances       #-}
 module Language.PureShell.ContextCoreFn.IR where
 
 import           Data.Bool.Singletons
@@ -58,28 +60,21 @@ import           Text.Show.Singletons                ()
 
 -- | Like CoreFn, but with context annotations
 
-data InternalIdentData
-  = RuntimeLazyFactory
-  | Lazy !Text
---   deriving (Show, Eq, Ord)
-
 -- | Unfortunately we can not use Language.PureScript.Names.ModuleName
 -- here because in order to generate SDecide instances, we must be
 -- able to derive our own Eq instance in the TH splice below.
-newtype ModuleName = ModuleName Text
+newtype ModuleName = ModuleName { getModuleName :: Text }
+  deriving (Show)
 -- | We need this custom promoted version ModuleName. The `P` prefixed
 -- names are needed unfortunately to make the promotion hack below
 -- work.
 newtype PModuleName = PModuleName Symbol
---   deriving (Ord, Eq, Show)
 
 data Imported a = Imported ModuleName a
 data PImported a = PImported PModuleName a
 
-data Qualified a = Qualified (Maybe ModuleName) a
---  deriving (Ord, Eq, Show)
+data Qualified a = Qualified (Maybe ModuleName) a deriving Show
 data PQualified a = PQualified (Maybe PModuleName) a
---  deriving (Ord, Eq, Show)
 
 type PQIdent = PQualified PIdent
 
@@ -89,13 +84,13 @@ data Ident
    = Ident Text
    | GenIdent (Maybe Text) Nat
    | UnusedIdent
---   deriving (Ord, Eq, Show)
+   deriving (Show)
 
 data PIdent
    = PIdent Symbol
    | PGenIdent (Maybe Symbol) Nat
    | PUnusedIdent
---   deriving (Ord, Eq, Show)
+   deriving (Ord, Eq, Show)
 
 $(let
      customPromote :: Name -> Name
@@ -167,6 +162,11 @@ data Literal a c
 data Expr a (c :: [PQIdent]) where
   Constructor  :: a -> (F.ProperName 'F.TypeName) -> (F.ProperName 'F.ConstructorName) -> Sing (fs :: [PIdent]) -> Expr a c
   -- ^ This is like a lambda
+
+  -- ^ TODO We will need to qualify these names, because the
+  -- constructor binder also uses qualified names, and the target
+  -- language has no name spaces. During elaboration we will need to
+  -- determine the qualifier, presumably the module name.
   Accessor     :: a -> PSString -> (Expr a c) -> Expr a c -- ^ This is like an application
   ObjectUpdate :: a -> (Expr a c) -> [(PSString, Expr a c)] -> Expr a c -- ^ This is like an application
   Literal      :: a -> Literal a c -> Expr a c
@@ -190,10 +190,9 @@ data Bind a (l :: [PIdent]) (c :: [PQIdent]) where
 -- type parameter l. To make those names available inside all bound
 -- expressions, l needs to be appended to the context c where RecList
 -- is used.
-data family RecList a (l :: [PIdent]) (c :: [PQIdent]) :: Type
-data instance RecList a '[] c = RecNil
-data instance RecList a (i ': is) c = RecCons a (Sing i) {- = -} (Expr a c)
-                                      {- : -} (RecList a is c)
+data RecList a (l :: [PIdent]) (c :: [PQIdent]) where
+  RecNil  :: RecList a '[] c
+  RecCons :: a -> (Sing i) {- = -} -> (Expr a c) {- : -} -> (RecList a is c) -> RecList a (i ': is) c
 
 type Guard a c = Expr a c
 

@@ -3,5 +3,9 @@ help:
 
 ## compile the example purs files
 .PHONY: examples
-examples : 
+examples :
 	$(MAKE) -C purs-examples
+
+.PHONY: debug
+debug :
+	$(MAKE) -C purs-examples debug

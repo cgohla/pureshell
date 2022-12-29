@@ -1,19 +1,31 @@
-{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DataKinds             #-}
+{-# LANGUAGE DuplicateRecordFields #-}
 module App.Options ( runWithOptions
-                   , CLIOptions(..)) where
+                   , CompilerCLIOptions(..)
+                   , DebugCLIOptions(..)) where
 
 import           Control.Monad.IO.Class (liftIO)
 import           Options.Declarative
 
-data CLIOptions = CLIOptions { inputPath  :: FilePath
-                             , outputPath :: Maybe FilePath
-                             }
+data CompilerCLIOptions = CompilerCLIOptions { inputPath  :: FilePath
+                                             , outputPath :: Maybe FilePath
+                                             }
 
-runWithOptions :: (CLIOptions -> IO ()) -> IO ()
-runWithOptions f = run "pureshell" Nothing $ getCLIOptions f
+runWithOptions :: (CompilerCLIOptions -> IO ()) -> (DebugCLIOptions -> IO ()) -> IO ()
+runWithOptions f g = run "pureshell" Nothing $ Group "pureshell" [ subCmd "compile" $ getCompilerCLIOptions f
+                                                                 , subCmd "debug" $ getDebugCLIOptions g
+                                                                 ]
 
-getCLIOptions :: (CLIOptions -> IO ())
+getCompilerCLIOptions :: (CompilerCLIOptions -> IO ())
               -> Arg "INPUT" FilePath
               -> Flag "o" '[] "OUTPUT" "" (Maybe FilePath)
               -> Cmd "compile PureScript CoreFn to Bash" ()
-getCLIOptions f i o = liftIO $ f $ CLIOptions (get i) (get o)
+getCompilerCLIOptions f i o = liftIO $ f $ CompilerCLIOptions (get i) (get o)
+
+data DebugCLIOptions = DebugCLIOptions { inputPath :: FilePath
+                                       }
+
+getDebugCLIOptions :: (DebugCLIOptions -> IO ())
+                -> Arg "INPUT" FilePath
+                -> Cmd "debug the compiler" ()
+getDebugCLIOptions f i = liftIO $ f $ DebugCLIOptions (get i)

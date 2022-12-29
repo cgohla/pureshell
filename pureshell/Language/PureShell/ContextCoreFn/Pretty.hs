@@ -35,7 +35,7 @@ import           Text.PrettyPrint.ANSI.Leijen        (Doc, char, dot, dquotes,
 prettyModule :: X.Module a -> Doc
 prettyModule X.Module{..} = vsep $ intro : prettyBindList moduleDecls
   where
-    intro = hsep [text "module", text $ unpack $ getModuleName moduleName, text "where"]
+    intro = hsep [text "module", text $ unpack $ X.getModuleName moduleName, text "where"]
 
 prettyLiteral :: X.Literal a c -> Doc
 prettyLiteral = \case

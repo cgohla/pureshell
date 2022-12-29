@@ -189,7 +189,7 @@ elaborateExpr c (F.Abs a i e)            = withSomeSing (elaborateIdent i) $
                                            \i' -> X.Abs a i' $ elaborateExpr (SCons (X.sLocal i') c) e
 elaborateExpr c (F.App a e e')           = X.App a (elaborateExpr c e) (elaborateExpr c e')
 elaborateExpr c (F.Var a i)              = withSomeSing (elaborateQualifiedIdent i) $
-                                           \i' -> maybe err (X.Var a i') (decideIsElement i' c)
+                                           \i' -> maybe err (X.Var a i') (decideIsElem i' c)
                                            where
                                              err = (error $ mconcat [ "Scope error in CoreFn"
                                                                     , ". var ref"

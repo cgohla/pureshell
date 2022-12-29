@@ -18,6 +18,8 @@ import qualified Language.PureShell.ContextCoreFn.IR as X (Bind (..),
                                                            Expr (..),
                                                            Ident (..),
                                                            LitBinder (..),
+                                                           LitBinderArray (..),
+                                                           LitBinderObject (LitBinderObjectCons, LitBinderObjectNil),
                                                            Literal (..),
                                                            Module (..),
                                                            ModuleName (..),
@@ -25,25 +27,32 @@ import qualified Language.PureShell.ContextCoreFn.IR as X (Bind (..),
                                                            RecList (..))
 import qualified Language.PureShell.CoreFn.IR        as F (ProperName (..),
                                                            Qualified (..))
-import           Text.PrettyPrint.ANSI.Leijen        (Doc, char, dot, dquotes,
-                                                      equals, fillBreak, hsep,
-                                                      indent, parens, punctuate,
-                                                      semiBraces, squotes, text,
-                                                      tupled, vcat, vsep,
-                                                      (<$$>), (<+>))
+import           Text.PrettyPrint.ANSI.Leijen        (Doc, char, dot, double,
+                                                      dquotes, equals,
+                                                      fillBreak, hsep, indent,
+                                                      integer, list, parens,
+                                                      punctuate, semiBraces,
+                                                      squotes, text, tupled,
+                                                      vcat, vsep, (<$$>), (<+>))
 
 prettyModule :: X.Module a -> Doc
 prettyModule X.Module{..} = vsep $ intro : prettyBindList moduleDecls
   where
     intro = hsep [text "module", text $ unpack $ X.getModuleName moduleName, text "where"]
 
+prettyNumericLit :: Either Integer Double -> Doc
+prettyNumericLit = \case
+  Left i  -> integer i
+  Right d -> double d
+
 prettyLiteral :: X.Literal a c -> Doc
 prettyLiteral = \case
-  X.NumericLiteral n -> undefined
+  X.NumericLiteral n -> prettyNumericLit n
   X.StringLiteral s  -> dquotes $ text $ show s
   X.CharLiteral c    -> squotes $ char c
   X.BooleanLiteral b -> text $ show b
-  _                  -> undefined
+  X.ArrayLiteral as  -> list $ fmap prettyExpr as
+  X.ObjectLiteral o  -> semiBraces $ fmap (\(i, e) -> assign (text $ show i) (prettyExpr e)) o
 
 prettyIdent :: X.Ident -> Doc
 prettyIdent = \case
@@ -59,18 +68,28 @@ prettyQualifiedIdent (X.Qualified m i) = mconcat $ punctuate dot $ q <> [prettyI
   where
     q = maybe mempty (pure . prettyModuleMame) m
 
+prettyLitArrayBinder :: X.LitBinderArray a l -> [Doc]
+prettyLitArrayBinder = \case
+  X.LitBinderArrayNil       -> mempty
+  X.LitBinderArrayCons b bs -> prettyBinder b : prettyLitArrayBinder bs
+
+prettyLitBinderObject :: X.LitBinderObject a l -> [Doc]
+prettyLitBinderObject = \case
+  X.LitBinderObjectNil -> mempty
+  X.LitBinderObjectCons f b o -> assign (text $ show f) (prettyBinder b) : prettyLitBinderObject o
+
 prettyLitBinder :: X.LitBinder a l -> Doc
 prettyLitBinder = \case
-  X.NumericLitBinder n -> undefined
+  X.NumericLitBinder n -> prettyNumericLit n
   X.StringLitBinder s  -> dquotes $ text $ show s
   X.CharLitBinder c    -> squotes $ char c
   X.BooleanLitBinder b -> text $ show b
-  X.ArrayLitBinder as  -> undefined
-  X.ObjectLitBinder o  -> undefined
+  X.ArrayLitBinder as  -> list $ prettyLitArrayBinder as
+  X.ObjectLitBinder o  -> semiBraces $ prettyLitBinderObject o
 
 prettyProperQualifiedName :: F.Qualified (F.ProperName n) -> Doc
 prettyProperQualifiedName = \case
-  F.Qualified q n -> prettyProperName n -- NOTE we are ignoring the qualifier
+  F.Qualified _q n -> prettyProperName n -- NOTE we are ignoring the qualifier
 
 prettyBinder :: X.Binder a l -> Doc
 prettyBinder = \case
@@ -82,7 +101,10 @@ prettyBinder = \case
                                             , prettyProperQualifiedName cn
                                             , semiBraces $ prettyBinderList bs
                                             ]
-  X.NamedBinder a i b            -> undefined
+  X.NamedBinder a i b            -> mconcat [ text $ show $ fromSing i
+                                            , char '@'
+                                            , parens $ prettyBinder b
+                                            ]
 
 prettyBinderList :: X.BinderList a l -> [Doc]
 prettyBinderList = \case
@@ -96,8 +118,8 @@ prettyCaseAlternative :: X.CaseAlternative a c-> Doc
 prettyCaseAlternative (X.CaseAlternative bs rs) = fillBreak 8 (tupled $ prettyBinderList bs) <+> rightarrow <+> rs'
   where
     rs' = case rs of
+      Left gs -> vcat $ fmap (\(g, e) -> prettyExpr g <+> char '|' <+> prettyExpr e) gs
       Right e -> prettyExpr e
-      _       -> undefined
 
 prettyRecList :: X.RecList a l c -> [Doc]
 prettyRecList = \case

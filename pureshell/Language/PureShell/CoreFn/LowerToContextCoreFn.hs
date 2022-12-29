@@ -6,6 +6,7 @@
 {-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE PolyKinds           #-}
 {-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE RecordWildCards     #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications    #-}
 {-# LANGUAGE TypeFamilies        #-}
@@ -97,7 +98,10 @@ elaborateQualifiedIdent :: F.Qualified F.Ident -> X.Qualified X.Ident
 elaborateQualifiedIdent (F.Qualified m i) = X.Qualified (f m) $ elaborateIdent i
   where
     f (F.ByModuleName (F.ModuleName n)) = Just $ X.ModuleName n
-    f _                                 = error "not implemented"
+    f (F.BySourcePos _s)                = Nothing
+    -- ^ NOTE we can't actually use the source pos qualification,
+    -- because the qualifieres are not given at CoreFn binding sites
+    -- (Abs, Let, var binder).
 
 elaborateLiteral :: Sing c -> F.Literal (F.Expr a) -> X.Literal a c
 elaborateLiteral _ (F.NumericLiteral n) = X.NumericLiteral n
@@ -185,9 +189,15 @@ elaborateExpr c (F.Abs a i e)            = withSomeSing (elaborateIdent i) $
                                            \i' -> X.Abs a i' $ elaborateExpr (SCons (X.sLocal i') c) e
 elaborateExpr c (F.App a e e')           = X.App a (elaborateExpr c e) (elaborateExpr c e')
 elaborateExpr c (F.Var a i)              = withSomeSing (elaborateQualifiedIdent i) $
-                                           \i' -> maybe (error "Scope error in CoreFn")
-                                                  (X.Var a i')
-                                                  (decideIsElem i' c)
+                                           \i' -> maybe err (X.Var a i') (decideIsElement i' c)
+                                           where
+                                             err = (error $ mconcat [ "Scope error in CoreFn"
+                                                                    , ". var ref"
+                                                                    , show i
+                                                                    , ", actual context"
+                                                                    , show $ fromSing c
+                                                                    ]
+                                                   )
 elaborateExpr c (F.Case a es as)         = X.Case a (fmap (elaborateExpr c) es) $
                                            fmap (elaborateCaseAlternative c) as
 elaborateExpr c (F.Let a bs e)           = case elaborateBindList c bs of

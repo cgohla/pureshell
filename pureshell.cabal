@@ -106,6 +106,7 @@ library
     Language.PureShell.Combinatory.Shell
     Language.PureShell.ContextCoreFn.IR
     Language.PureShell.ContextCoreFn.Pretty
+    Language.PureShell.ContextCoreFn.CodeGen
     Language.PureShell.CoreFn.CodeGen
     Language.PureShell.CoreFn.IR
     Language.PureShell.CoreFn.Lower

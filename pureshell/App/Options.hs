@@ -23,9 +23,11 @@ getCompilerCLIOptions :: (CompilerCLIOptions -> IO ())
 getCompilerCLIOptions f i o = liftIO $ f $ CompilerCLIOptions (get i) (get o)
 
 data DebugCLIOptions = DebugCLIOptions { inputPath :: FilePath
+                                       , showContext :: Bool
                                        }
 
 getDebugCLIOptions :: (DebugCLIOptions -> IO ())
-                -> Arg "INPUT" FilePath
-                -> Cmd "debug the compiler" ()
-getDebugCLIOptions f i = liftIO $ f $ DebugCLIOptions (get i)
+                   -> Arg "INPUT" FilePath
+                   -> Flag "c" '["show-contexts"] "" "" Bool
+                   -> Cmd "debug the compiler" ()
+getDebugCLIOptions f i s = liftIO $ f $ DebugCLIOptions (get i) (get s)

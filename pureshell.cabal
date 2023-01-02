@@ -96,6 +96,10 @@ library
     App.Main
     App.Options
     Data.List.Props
+    Data.Fin
+    Data.Nat
+    Data.Vec
+    Data.Permutation
     Language.Bash.Test
     Language.PureShell
     Language.PureShell.Combinatory.CodeGen

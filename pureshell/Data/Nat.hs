@@ -33,3 +33,7 @@ lemSuccAddRight :: Sing m -> Sing n -> 'S(m `Add` n) :~: m `Add` 'S n
 lemSuccAddRight SZ _n = Refl
 lemSuccAddRight (SS m) n = case lemSuccAddRight m n of
                              Refl -> Refl
+
+natToInteger :: Nat -> Integer
+natToInteger Z = 0
+natToInteger (S n) = 1 + natToInteger n

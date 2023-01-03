@@ -13,7 +13,7 @@ import           Data.Singletons.Decide
 import           Data.Nat
 
 data Transp (n :: Nat) where
-  Transp :: Transp ('S ('S n))
+  Transp :: Sing n -> Transp ('S ('S n))
   Shift :: Transp n -> Transp ('S n)
 
 data Perm (n :: Nat) where
@@ -30,7 +30,7 @@ tensorIdLeftTransp (SS m) p = case lemSuccAddRight (SS m) (sing @n) of
                           Refl -> tensorIdLeftTransp m $ Shift p
 
 tensorIdRightTransp :: Transp m -> Sing n -> Transp (m `Add` n)
-tensorIdRightTransp Transp _n   = Transp
+tensorIdRightTransp (Transp m') n   = Transp (m' `sAdd` n)
 tensorIdRightTransp (Shift t) n = Shift $ tensorIdRightTransp t n
 
 tensorIdLeftPerm :: SingI n => Sing m -> Perm n -> Perm (m `Add` n)

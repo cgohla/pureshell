@@ -100,6 +100,7 @@ library
     Data.Nat
     Data.Vec
     Data.Permutation
+    Data.Permutation.Pretty
     Language.Bash.Test
     Language.PureShell
     Language.PureShell.Combinatory.CodeGen

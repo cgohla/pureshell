@@ -23,19 +23,19 @@ cross = text " ╳ "
 
 prettyTransp :: Transp n -> Doc
 prettyTransp (Transp n) = cross <+> (hsep $ natReplicate (fromSing n) vertical)
-prettyTransp (Shift t) = vertical <+> prettyTransp t
+prettyTransp (Shift t)  = vertical <+> prettyTransp t
 
-prettyPerm :: forall n. (SingI n) => Perm n -> Doc
-prettyPerm Ident            = hsep $ natReplicate (fromSing $ sing @n) vertical
+prettyPerm :: Perm n -> Doc
+prettyPerm (Ident n)        = hsep $ natReplicate (fromSing n) vertical
 prettyPerm (TranspCons t p) = vcat [prettyTransp t, prettyPerm p]
 
 -- | prints
 --
 --   ╳  |
---  |  ╳  
+--  |  ╳
 --  | | |
 example :: Doc
 example =  prettyPerm $
-           compose (TranspCons (Transp sing) Ident) $
-           tensor (Ident @('S 'Z)) $ TranspCons (Transp (sing)) $
-           Ident @('S('S 'Z))
+           compose (TranspCons (Transp sing) $ Ident sing) $
+           tensor (Ident $ sing @('S 'Z)) $ TranspCons (Transp (sing)) $
+           Ident $ sing @('S('S 'Z))

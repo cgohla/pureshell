@@ -68,7 +68,7 @@ library
   build-depends:
     , aeson
     , ansi-wl-pprint
-    , base                    ^>=4.16.3.0
+    , base                  ^>=4.16.3.0
     , bash
     , binary
     , bytestring
@@ -95,13 +95,13 @@ library
     App.Driver
     App.Main
     App.Options
-    Data.List.Props
     Data.Fin
+    Data.List.Props
     Data.Nat
-    Data.Vec
     Data.Permutation
     Data.Permutation.Enumerate
     Data.Permutation.Pretty
+    Data.Vec
     Language.Bash.Test
     Language.PureShell
     Language.PureShell.Combinatory.CodeGen
@@ -110,9 +110,9 @@ library
     Language.PureShell.Combinatory.IR
     Language.PureShell.Combinatory.Lower
     Language.PureShell.Combinatory.Shell
+    Language.PureShell.ContextCoreFn.CodeGen
     Language.PureShell.ContextCoreFn.IR
     Language.PureShell.ContextCoreFn.Pretty
-    Language.PureShell.ContextCoreFn.CodeGen
     Language.PureShell.CoreFn.CodeGen
     Language.PureShell.CoreFn.IR
     Language.PureShell.CoreFn.Lower

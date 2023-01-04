@@ -30,8 +30,8 @@ tensorIdLeftTransp (SS m) n p = case lemSuccAddRight (SS m) n of
                                   Refl -> tensorIdLeftTransp m (SS n) $ Shift p
 
 tensorIdRightTransp :: Transp m -> Sing n -> Transp (m `Add` n)
-tensorIdRightTransp (Transp m') n = Transp (m' `sAdd` n)
-tensorIdRightTransp (Shift t) n   = Shift $ tensorIdRightTransp t n
+tensorIdRightTransp (Transp m') n   = Transp (m' `sAdd` n)
+tensorIdRightTransp (Shift t) n = Shift $ tensorIdRightTransp t n
 
 tensorIdLeftPerm :: Sing m -> Sing n -> Perm n -> Perm (m `Add` n)
 tensorIdLeftPerm m _n (Ident n) = Ident $ m `sAdd` n
